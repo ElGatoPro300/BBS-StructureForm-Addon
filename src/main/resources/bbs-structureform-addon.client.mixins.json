@@ -1,0 +1,14 @@
+{
+	"required": true,
+	"package": "elgatopro300.bbsstructureform.mixin.client",
+	"compatibilityLevel": "JAVA_17",
+	"client": [
+		"ExtraFormSectionMixin",
+		"FormUtilsClientMixin",
+		"UIFormEditorMixin",
+		"UIReplaysEditorMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}
