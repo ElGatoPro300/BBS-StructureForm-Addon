@@ -17,7 +17,7 @@ import org.joml.Vector4f;
 public class StructureForm extends Form
 {
     /** Ruta relativa dentro de assets al archivo de estructura (.nbt), por ejemplo: "structures/casa.nbt" */
-    public final ValueString structureFile = new ValueString("structure_file", "");
+    public final ValueString structureFile = new ValueString("structure_file", "bbs-structureform:structures/tree.nbt");
     /** Color de tinte aplicado al renderizado (multiplicado) */
     public final ValueColor color = new ValueColor("color", Color.white());
     /** Bioma seleccionado para coloreo (override). Vacío para usar el del mundo */

@@ -26,7 +26,7 @@ public class UILinkKeyframeFactory extends UIKeyframeFactory<Link>
                 java.util.List<String> items = new java.util.ArrayList<>();
                 try {
                     for (Link l : mchorse.bbs_mod.BBSMod.getProvider().getLinksFromPath(new Link("bbs-structureform", "structures"))) {
-                        if (l.path.toLowerCase().endsWith(".nbt")) items.add("assets:" + l.path);
+                        if (l.path.toLowerCase().endsWith(".nbt")) items.add("bbs-structureform:" + l.path);
                     }
                     for (Link l : mchorse.bbs_mod.BBSMod.getProvider().getLinksFromPath(new Link("world", ""))) {
                         if (l.path.toLowerCase().endsWith(".nbt")) items.add("world:" + l.path);
