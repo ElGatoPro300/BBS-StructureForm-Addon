@@ -13,11 +13,17 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 
 @Environment(EnvType.CLIENT)
 public class BBSSTRUCTUREFORMAddonClient implements ClientModInitializer {
+   private static boolean L10N_DONE = false;
    @Override
    public void onInitializeClient() {
-      BBSModClient.getL10n().register((lang) -> {
-         return Collections.singletonList(new Link("bbs-structureform", "lang/" + lang + ".json"));
+      ClientTickEvents.END_CLIENT_TICK.register(client -> {
+         if (!L10N_DONE && BBSModClient.getL10n() != null) {
+            BBSModClient.getL10n().register((lang) -> {
+               return Collections.singletonList(new Link("bbs-structureform", "lang/" + lang + ".json"));
+            });
+            BBSModClient.getL10n().reload();
+            L10N_DONE = true;
+         }
       });
-      BBSModClient.getL10n().reload();
    }
 }

@@ -3,6 +3,9 @@ package elgatopro300.bbsstructureform.mixin;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.forms.forms.StructureForm;
+import mchorse.bbs_mod.resources.packs.InternalAssetsSourcePack;
+import mchorse.bbs_mod.resources.packs.WorldStructuresSourcePack;
+import elgatopro300.bbsstructureform.BBSSTRUCTUREFORMAddon;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -17,5 +20,9 @@ public class BBSModMixin {
    )
    public void onOnInitialize(CallbackInfo info) {
       BBSMod.getForms().register(Link.bbs("structure"), StructureForm.class);
+      try {
+         BBSMod.getProvider().register(new InternalAssetsSourcePack("bbs-structureform", "assets/bbs_structureform", BBSSTRUCTUREFORMAddon.class));
+         BBSMod.getProvider().register(new WorldStructuresSourcePack());
+      } catch (Throwable ignored) {}
    }
 }
