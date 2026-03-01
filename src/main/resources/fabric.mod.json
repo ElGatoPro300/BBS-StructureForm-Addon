@@ -1,13 +1,13 @@
 {
 	"schemaVersion": 1,
 	"id": "bbs-structureform-addon",
-	"version": "1.0.0",
+	"version": "${version}",
 	"name": "BBS StructureForm ADDON",
-	"description": "Coming soon...",
+	"description": "BBS StructureForm Addon, as its name suggests, allows the use of structures in the official BBS",
 	"authors": [
 		"ElGatoPro300"
 	],
-	"license": "ARR",
+	"license": "MIT",
 	"icon": "assets/bbs_structureform/icon.png",
 	"environment": "*",
 	"entrypoints": {
