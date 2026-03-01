@@ -1053,8 +1053,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             try
             {
-                NbtCompound root = NbtIo.readCompressed(nbtFile);
-
+                NbtCompound root = NbtIo.readCompressed(is);
                 this.parseStructure(root);
             }
             catch (IOException e)
