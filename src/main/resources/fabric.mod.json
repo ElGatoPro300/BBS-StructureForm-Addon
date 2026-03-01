@@ -1,0 +1,35 @@
+{
+	"schemaVersion": 1,
+	"id": "bbs-structureform-addon",
+	"version": "1.0.0",
+	"name": "BBS StructureForm ADDON",
+	"description": "Coming soon...",
+	"authors": [
+		"ElGatoPro300"
+	],
+	"license": "ARR",
+	"icon": "assets/bbs_structureform/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"elgatopro300.bbsstructureform.BBSSTRUCTUREFORMAddon"
+		],
+		"client": [
+			"elgatopro300.bbsstructureform.BBSSTRUCTUREFORMAddonClient"
+		]
+	},
+	"mixins": [
+		"bbs-structureform-addon.mixins.json",
+		{
+			"config": "bbs-structureform-addon.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.16.14",
+		"minecraft": "~1.20.4",
+		"java": ">=17",
+		"fabric-api": "*",
+		"bbs": "*"
+	}
+}
