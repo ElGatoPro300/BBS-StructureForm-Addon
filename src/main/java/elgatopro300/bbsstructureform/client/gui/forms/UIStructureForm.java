@@ -1,6 +1,6 @@
 package elgatopro300.bbsstructureform.client.gui.forms;
 
-import mchorse.bbs_mod.forms.forms.StructureForm;
+import elgatopro300.bbsstructureform.form.StructureForm;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;

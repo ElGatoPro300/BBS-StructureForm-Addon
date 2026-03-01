@@ -1,4 +1,4 @@
-package mchorse.bbs_mod.forms.renderers.utils;
+package elgatopro300.bbsstructureform.client.forms.utils;
 
 import net.minecraft.block.BlockState;
 import net.minecraft.client.MinecraftClient;

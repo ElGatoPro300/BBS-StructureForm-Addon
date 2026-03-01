@@ -1,4 +1,4 @@
-package mchorse.bbs_mod.forms;
+package elgatopro300.bbsstructureform.client.gui.forms;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.data.storage.DataFileStorage;

@@ -1,9 +1,9 @@
 package elgatopro300.bbsstructureform.mixin.client;
 
+import elgatopro300.bbsstructureform.form.StructureForm;
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.forms.categories.FormCategory;
 import mchorse.bbs_mod.forms.sections.ExtraFormSection;
-import mchorse.bbs_mod.forms.forms.StructureForm;
 import mchorse.bbs_mod.resources.Link;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;

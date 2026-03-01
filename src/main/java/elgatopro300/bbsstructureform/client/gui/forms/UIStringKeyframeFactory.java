@@ -1,8 +1,9 @@
-package mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories;
+package elgatopro300.bbsstructureform.client.gui.forms;
 
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
