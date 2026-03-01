@@ -2,6 +2,7 @@ package elgatopro300.bbsstructureform.client.gui.forms;
 
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.forms.forms.StructureForm;
+import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
@@ -45,12 +46,12 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
     {
         super(editor);
 
-        this.pickStructure = new UIButton(IKey.raw("Pick Structure"), (b) -> this.pickStructure());
+        this.pickStructure = new UIButton(L10n.lang("bbs.structureform.ui.pick_structure"), (b) -> this.pickStructure());
         this.structureFile = new UITextbox(100, (s) -> this.form.structureFile.set(s)).path().border();
         this.color = new UIColor((c) -> this.form.color.set(Color.rgba(c))).withAlpha();
-        this.pickBiome = new UIButton(IKey.raw("Pick Biome"), (b) -> this.pickBiome());
+        this.pickBiome = new UIButton(L10n.lang("bbs.structureform.ui.pick_biome"), (b) -> this.pickBiome());
         // Inicializar con valor por defecto; se sincroniza en startEdit
-        this.toggleLight = new UIToggle(IKey.raw("Emit Light"), false, (t) -> this.toggleLight(t));
+        this.toggleLight = new UIToggle(L10n.lang("bbs.structureform.ui.emit_light"), false, (t) -> this.toggleLight(t));
         this.lightIntensity = new UITrackpad((v) -> this.setLightIntensity(v.intValue()))
                 .integer()
                 .limit(1D, 15D);
@@ -62,7 +63,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.options.add(this.pickStructure);
         this.options.add(this.pickBiome);
         this.options.add(this.toggleLight);
-        this.options.add(UI.label(IKey.raw("Light Intensity")).marginTop(6), this.lightIntensity);
+        this.options.add(UI.label(L10n.lang("bbs.structureform.ui.light_intensity")).marginTop(6), this.lightIntensity);
 
         // Pivot controls removed
     }
@@ -83,7 +84,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
             }
         } catch (Throwable ignored) {}
         list.sort(null);
-        UIStringOverlayPanel overlay = new UIStringOverlayPanel(IKey.raw("Pick Structure"), list, (value) -> {
+        UIStringOverlayPanel overlay = new UIStringOverlayPanel(L10n.lang("bbs.structureform.ui.pick_structure"), list, (value) -> {
             if (value == null || value.isEmpty() || value.equals("None")) {
                 this.setStructure(null);
             } else {
