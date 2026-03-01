@@ -29,16 +29,16 @@ public class ExtraFormSectionMixin {
       try {
          String preferred = "structures/tree.nbt";
          boolean foundPreferred = false;
-         for (Link link : BBSMod.getProvider().getLinksFromPath(Link.assets("structures"))) {
+         for (Link link : BBSMod.getProvider().getLinksFromPath(new Link("bbs-structureform", "structures"))) {
             if (!foundPreferred && preferred.equals(link.path)) {
-               form.structureFile.set(preferred);
+               form.structureFile.set("bbs-structureform:" + preferred);
                foundPreferred = true;
             }
          }
          if (!foundPreferred) {
-            for (Link link : BBSMod.getProvider().getLinksFromPath(Link.assets("structures"))) {
+            for (Link link : BBSMod.getProvider().getLinksFromPath(new Link("bbs-structureform", "structures"))) {
                if (link.path.toLowerCase().endsWith(".nbt")) {
-                  form.structureFile.set(link.path);
+                  form.structureFile.set("bbs-structureform:" + link.path);
                   break;
                }
             }

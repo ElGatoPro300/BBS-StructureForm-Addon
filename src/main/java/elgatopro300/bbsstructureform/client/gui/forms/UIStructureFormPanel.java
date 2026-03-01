@@ -69,23 +69,30 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
 
     private void pickStructure()
     {
-        java.util.Set<String> files = getSavedStructureFiles();
-        java.util.List<String> list = new java.util.ArrayList<>(files);
+        java.util.List<String> list = new java.util.ArrayList<>();
+        try {
+            for (mchorse.bbs_mod.resources.Link l : mchorse.bbs_mod.BBSMod.getProvider().getLinksFromPath(new mchorse.bbs_mod.resources.Link("bbs-structureform", "structures"))) {
+                if (l.path.toLowerCase().endsWith(".nbt")) {
+                    list.add("bbs-structureform:" + l.path);
+                }
+            }
+            for (mchorse.bbs_mod.resources.Link l : mchorse.bbs_mod.BBSMod.getProvider().getLinksFromPath(new mchorse.bbs_mod.resources.Link("world", ""))) {
+                if (l.path.toLowerCase().endsWith(".nbt")) {
+                    list.add("world:" + l.path);
+                }
+            }
+        } catch (Throwable ignored) {}
         list.sort(null);
         UIStringOverlayPanel overlay = new UIStringOverlayPanel(IKey.raw("Pick Structure"), list, (value) -> {
             if (value == null || value.isEmpty() || value.equals("None")) {
                 this.setStructure(null);
             } else {
-                this.setStructure(Link.create("structures/" + value));
+                this.setStructure(mchorse.bbs_mod.resources.Link.create(value));
             }
         });
         String current = this.form.structureFile.get();
         if (current != null && !current.isEmpty()) {
-            if (current.startsWith("structures/")) {
-                overlay.set(current.substring("structures/".length()));
-            } else {
-                overlay.set(current);
-            }
+            overlay.set(current);
         }
         UIOverlay.addOverlay(this.getContext(), overlay, 280, 0.5F);
     }

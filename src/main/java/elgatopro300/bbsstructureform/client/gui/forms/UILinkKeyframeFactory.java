@@ -23,14 +23,18 @@ public class UILinkKeyframeFactory extends UIKeyframeFactory<Link>
         {
             UIButton pickStructure = new UIButton(IKey.raw("Pick Structure"), (b) ->
             {
-                java.util.List<String> files = new java.util.ArrayList<>(getSavedStructureFiles());
-                files.sort(null);
-                UIStringOverlayPanel panel = new UIStringOverlayPanel(IKey.raw("Pick Structure"), files, (value) -> {
-                    if (value == null || value.isEmpty() || "None".equals(value)) {
-                        this.editor.getGraph().setValue(null, true);
-                    } else {
-                        this.editor.getGraph().setValue(Link.create("structures/" + value), true);
+                java.util.List<String> items = new java.util.ArrayList<>();
+                try {
+                    for (Link l : mchorse.bbs_mod.BBSMod.getProvider().getLinksFromPath(new Link("bbs-structureform", "structures"))) {
+                        if (l.path.toLowerCase().endsWith(".nbt")) items.add("assets:" + l.path);
                     }
+                    for (Link l : mchorse.bbs_mod.BBSMod.getProvider().getLinksFromPath(new Link("world", ""))) {
+                        if (l.path.toLowerCase().endsWith(".nbt")) items.add("world:" + l.path);
+                    }
+                } catch (Throwable ignored) {}
+                items.sort(null);
+                UIStringOverlayPanel panel = new UIStringOverlayPanel(IKey.raw("Pick Structure"), items, (value) -> {
+                    this.editor.getGraph().setValue(value == null || value.isEmpty() ? null : Link.create(value), true);
                 });
                 Link current = this.keyframe.getValue();
                 panel.set(current == null ? "" : current.toString());

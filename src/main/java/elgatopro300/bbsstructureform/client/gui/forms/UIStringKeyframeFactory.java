@@ -38,9 +38,17 @@ public class UIStringKeyframeFactory extends UIKeyframeFactory<String>
         {
             UIButton pickStructure = new UIButton(IKey.raw("Pick Structure"), (b) ->
             {
-                java.util.List<String> files = new java.util.ArrayList<>(getSavedStructureFiles());
-                files.sort(null);
-                UIStringOverlayPanel panel = new UIStringOverlayPanel(IKey.raw("Pick Structure"), files, (value) -> {
+                java.util.List<String> items = new java.util.ArrayList<>();
+                try {
+                    for (Link l : mchorse.bbs_mod.BBSMod.getProvider().getLinksFromPath(new Link("bbs-structureform", "structures"))) {
+                        if (l.path.toLowerCase().endsWith(".nbt")) items.add("assets:" + l.path);
+                    }
+                    for (Link l : mchorse.bbs_mod.BBSMod.getProvider().getLinksFromPath(new Link("world", ""))) {
+                        if (l.path.toLowerCase().endsWith(".nbt")) items.add("world:" + l.path);
+                    }
+                } catch (Throwable ignored) {}
+                items.sort(null);
+                UIStringOverlayPanel panel = new UIStringOverlayPanel(IKey.raw("Pick Structure"), items, (value) -> {
                     String v = value == null ? "" : value;
                     this.editor.getGraph().setValue(v, true);
                 });
