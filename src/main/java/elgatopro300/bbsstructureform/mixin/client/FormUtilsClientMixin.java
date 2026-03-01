@@ -1,8 +1,8 @@
 package elgatopro300.bbsstructureform.mixin.client;
 
-import mchorse.bbs_mod.forms.FormUtilsClient;
-import mchorse.bbs_mod.forms.forms.StructureForm;
+import elgatopro300.bbsstructureform.form.StructureForm;
 import elgatopro300.bbsstructureform.client.forms.renderer.StructureFormRenderer;
+import mchorse.bbs_mod.forms.FormUtilsClient;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import org.spongepowered.asm.mixin.Mixin;
