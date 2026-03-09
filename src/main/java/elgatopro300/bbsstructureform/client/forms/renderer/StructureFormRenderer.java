@@ -72,8 +72,11 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.function.Function;
 
 /**
@@ -84,7 +87,18 @@ import java.util.function.Function;
  */
 public class StructureFormRenderer extends FormRenderer<StructureForm>
 {
+    private static class VaoHolder
+    {
+        public IModelVAO vao;
+        public IModelVAO picking;
+    }
+
+    private static final Map<String, VaoHolder> VAO_CACHE = new HashMap<>();
+
     private final List<BlockEntry> blocks = new ArrayList<>();
+    private final List<BlockEntry> animatedBlocks = new ArrayList<>();
+    private final List<BlockEntry> biomeTintedBlocks = new ArrayList<>();
+    private final List<BlockEntry> blockEntitiesList = new ArrayList<>();
 
     private String lastFile = null;
 
@@ -92,13 +106,35 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     private BlockPos boundsMin = null;
     private BlockPos boundsMax = null;
 
-    private IModelVAO structureVao = null;
-    private IModelVAO structureVaoPicking = null;
-
     private boolean vaoDirty = true;
     private boolean capturingVAO = false;
     private boolean vaoPickingDirty = true;
     private boolean capturingIncludeSpecialBlocks = false;
+    private boolean hasTranslucentLayer = false;
+    private boolean hasCutoutLayer = false;
+    private boolean hasAnimatedLayer = false;
+    private boolean hasBiomeTintedLayer = false;
+    private boolean hasBlockEntityLayer = false;
+    private VirtualBlockRenderView.Entry[] entriesCache = null;
+    private VirtualBlockRenderView cachedView = null;
+
+    public static void clearAllCachedVaos()
+    {
+        for (VaoHolder holder : VAO_CACHE.values())
+        {
+            if (holder.vao instanceof ModelVAO)
+            {
+                ((ModelVAO) holder.vao).delete();
+            }
+
+            if (holder.picking instanceof ModelVAO)
+            {
+                ((ModelVAO) holder.picking).delete();
+            }
+        }
+
+        VAO_CACHE.clear();
+    }
 
     public StructureFormRenderer(StructureForm form)
     {
@@ -162,11 +198,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         matrices.peek().getNormalMatrix().getScale(Vectors.EMPTY_3F);
         matrices.peek().getNormalMatrix().scale(1F / Vectors.EMPTY_3F.x, -1F / Vectors.EMPTY_3F.y, 1F / Vectors.EMPTY_3F.z);
 
-        /* If structure light is enabled, force BufferBuilder path so dynamic light calculation via VirtualBlockRenderView applies. */
-        /* This prevents VAO (simpler lighting) from ignoring the light panel. */
+        /* If structure light is enabled via form properties, force BufferBuilder path so dynamic light calculation applies. */
+        lightsEnabled = this.form.emitLight.get();
+        if (lightsEnabled)
         {
-            lightsEnabled = this.form.emitLight.get();
-            if (lightsEnabled) optimize = false;
+            optimize = false;
         }
 
         if (!optimize)
@@ -194,13 +230,15 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
         else
         {
-            /* Prepare VAO if necessary and draw with animation compatible shader */
-            if (this.structureVao == null || this.vaoDirty)
+            IModelVAO vao = this.getStructureVao();
+
+            if (vao == null || this.vaoDirty)
             {
                 this.buildStructureVAO();
+                vao = this.getStructureVao();
             }
 
-            if (this.structureVao != null)
+            if (vao != null)
             {
                 Color tint = this.form.color.get();
                 GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
@@ -213,68 +251,84 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 RenderSystem.setShader(() -> shader);
                 RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
 
-                /* Enable blending to support translucent layers (glass, portal, leaves, etc.) */
-                RenderSystem.enableBlend();
-                RenderSystem.defaultBlendFunc();
+                boolean needBlendUI = tint.a < 0.999F || this.hasTranslucentLayer;
 
-                ModelVAORenderer.render(shader, this.structureVao, matrices, tint.r, tint.g, tint.b, tint.a, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
-
-                /* Block Entities pass after VAO */
-                try
+                if (needBlendUI)
                 {
-                    VertexConsumerProvider beConsumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
-                    FormRenderingContext beContext = new FormRenderingContext()
-                        .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
-
-                    this.renderBlockEntitiesOnly(beContext, matrices, beConsumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
-
-                    if (beConsumers instanceof VertexConsumerProvider.Immediate immediate)
-                    {
-                        immediate.draw();
-                    }
+                    RenderSystem.enableBlend();
+                    RenderSystem.defaultBlendFunc();
                 }
-                catch (Throwable ignored)
-                {}
-
-                /* Additional pass: biome tinted blocks (leaves/grass/vines/lily pad) */
-                try
+                else
                 {
-                    boolean shadersEnabled = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
-                    VertexConsumerProvider consumersTint = shadersEnabled
-                        ? MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers()
-                        : VertexConsumerProvider.immediate(Tessellator.getInstance().getBuffer());
-                    FormRenderingContext tintContext = new FormRenderingContext()
-                        .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
-
-                    this.renderBiomeTintedBlocksVanilla(tintContext, matrices, consumersTint, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
-
-                    if (consumersTint instanceof VertexConsumerProvider.Immediate immediate)
-                    {
-                        immediate.draw();
-                    }
+                    RenderSystem.disableBlend();
                 }
-                catch (Throwable ignored)
-                {}
 
-                /* Additional pass: animated blocks (portal/fluid) with moving block layer */
-                try
+                RenderSystem.enableCull();
+
+                ModelVAORenderer.render(shader, vao, matrices, tint.r, tint.g, tint.b, tint.a, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
+
+                if (this.hasBlockEntityLayer)
                 {
-                    boolean shadersEnabled = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
-                    VertexConsumerProvider consumersAnim = shadersEnabled
-                        ? MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers()
-                        : VertexConsumerProvider.immediate(Tessellator.getInstance().getBuffer());
-                    FormRenderingContext animContext = new FormRenderingContext()
-                        .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
-
-                    this.renderAnimatedBlocksVanilla(animContext, matrices, consumersAnim, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
-
-                    if (consumersAnim instanceof VertexConsumerProvider.Immediate immediate)
+                    try
                     {
-                        immediate.draw();
+                        VertexConsumerProvider beConsumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
+                        FormRenderingContext beContext = new FormRenderingContext()
+                            .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
+
+                        this.renderBlockEntitiesOnly(beContext, matrices, beConsumers, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
+
+                        if (beConsumers instanceof VertexConsumerProvider.Immediate immediate)
+                        {
+                            immediate.draw();
+                        }
                     }
+                    catch (Throwable ignored)
+                    {}
                 }
-                catch (Throwable ignored)
-                {}
+
+                if (this.hasBiomeTintedLayer)
+                {
+                    try
+                    {
+                        boolean shadersEnabled = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
+                        VertexConsumerProvider consumersTint = shadersEnabled
+                            ? MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers()
+                            : VertexConsumerProvider.immediate(Tessellator.getInstance().getBuffer());
+                        FormRenderingContext tintContext = new FormRenderingContext()
+                            .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
+
+                        this.renderBiomeTintedBlocksVanilla(tintContext, matrices, consumersTint, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
+
+                        if (consumersTint instanceof VertexConsumerProvider.Immediate immediate)
+                        {
+                            immediate.draw();
+                        }
+                    }
+                    catch (Throwable ignored)
+                    {}
+                }
+
+                if (this.hasAnimatedLayer)
+                {
+                    try
+                    {
+                        boolean shadersEnabled = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
+                        VertexConsumerProvider consumersAnim = shadersEnabled
+                            ? MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers()
+                            : VertexConsumerProvider.immediate(Tessellator.getInstance().getBuffer());
+                        FormRenderingContext animContext = new FormRenderingContext()
+                            .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
+
+                        this.renderAnimatedBlocksVanilla(animContext, matrices, consumersAnim, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV);
+
+                        if (consumersAnim instanceof VertexConsumerProvider.Immediate immediate)
+                        {
+                            immediate.draw();
+                        }
+                    }
+                    catch (Throwable ignored)
+                    {}
+                }
 
                 gameRenderer.getLightmapTextureManager().disable();
                 gameRenderer.getOverlayTexture().teardownOverlayColor();
@@ -298,9 +352,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         boolean optimize = true;
         boolean picking = context.isPicking();
 
-        if (optimize && (this.structureVao == null || this.vaoDirty))
+        IModelVAO vao = this.getStructureVao();
+
+        if (optimize && (vao == null || this.vaoDirty))
         {
             this.buildStructureVAO();
+            vao = this.getStructureVao();
         }
 
         if (!optimize)
@@ -308,9 +365,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             /* If picking, render with VAO (picking) and picking shader to get full silhouette */
             if (picking)
             {
-                if (this.structureVaoPicking == null || this.vaoPickingDirty)
+                IModelVAO pickingVao = this.getStructureVaoPicking();
+
+                if (pickingVao == null || this.vaoPickingDirty)
                 {
                     this.buildStructureVAOPicking();
+                    pickingVao = this.getStructureVaoPicking();
                 }
 
                 Color tint3D = this.form.color.get();
@@ -325,7 +385,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 RenderSystem.enableBlend();
                 RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
 
-                ModelVAORenderer.render(BBSShaders.getPickerModelsProgram(), this.structureVaoPicking, context.stack, tint3D.r, tint3D.g, tint3D.b, tint3D.a, light, context.overlay);
+                ModelVAORenderer.render(BBSShaders.getPickerModelsProgram(), pickingVao, context.stack, tint3D.r, tint3D.g, tint3D.b, tint3D.a, light, context.overlay);
 
                 gameRenderer.getLightmapTextureManager().disable();
                 gameRenderer.getOverlayTexture().teardownOverlayColor();
@@ -371,7 +431,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 RenderSystem.depthFunc(GL11.GL_LEQUAL);
             }
         }
-        else if (this.structureVao != null)
+        else if (vao != null)
         {
             Color tint3D = this.form.color.get();
             int light = context.isPicking() ? 0 : context.light;
@@ -382,9 +442,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             if (context.isPicking())
             {
-                if (this.structureVaoPicking == null || this.vaoPickingDirty)
+                IModelVAO pickingVao = this.getStructureVaoPicking();
+
+                if (pickingVao == null || this.vaoPickingDirty)
                 {
                     this.buildStructureVAOPicking();
+                    pickingVao = this.getStructureVaoPicking();
                 }
 
                 this.setupTarget(context, BBSShaders.getPickerModelsProgram());
@@ -392,7 +455,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 RenderSystem.enableBlend();
                 RenderSystem.setShaderTexture(0, PlayerScreenHandler.BLOCK_ATLAS_TEXTURE);
 
-                ModelVAORenderer.render(BBSShaders.getPickerModelsProgram(), this.structureVaoPicking, context.stack, tint3D.r, tint3D.g, tint3D.b, tint3D.a, light, context.overlay);
+                ModelVAORenderer.render(BBSShaders.getPickerModelsProgram(), pickingVao, context.stack, tint3D.r, tint3D.g, tint3D.b, tint3D.a, light, context.overlay);
             }
             else
             {
@@ -406,44 +469,50 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 RenderSystem.enableBlend();
                 RenderSystem.defaultBlendFunc();
 
-                ModelVAORenderer.render(shader, this.structureVao, context.stack, tint3D.r, tint3D.g, tint3D.b, tint3D.a, light, context.overlay);
+                ModelVAORenderer.render(shader, vao, context.stack, tint3D.r, tint3D.g, tint3D.b, tint3D.a, light, context.overlay);
 
-                /* Block Entities pass after VAO */
-                try
+                if (this.hasBlockEntityLayer)
                 {
-                    VertexConsumerProvider beConsumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
-
-                    this.renderBlockEntitiesOnly(context, context.stack, beConsumers, light, context.overlay);
-
-                    if (beConsumers instanceof VertexConsumerProvider.Immediate immediate)
+                    try
                     {
-                        immediate.draw();
+                        VertexConsumerProvider beConsumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
+
+                        this.renderBlockEntitiesOnly(context, context.stack, beConsumers, light, context.overlay);
+
+                        if (beConsumers instanceof VertexConsumerProvider.Immediate immediate)
+                        {
+                            immediate.draw();
+                        }
                     }
+                    catch (Throwable ignored)
+                    {}
                 }
-                catch (Throwable ignored)
-                {}
 
-                /* Additional pass: biome tinted blocks */
-                try
+                if (this.hasBiomeTintedLayer)
                 {
-                    VertexConsumerProvider.Immediate tintConsumers = VertexConsumerProvider.immediate(Tessellator.getInstance().getBuffer());
+                    try
+                    {
+                        VertexConsumerProvider.Immediate tintConsumers = VertexConsumerProvider.immediate(Tessellator.getInstance().getBuffer());
 
-                    this.renderBiomeTintedBlocksVanilla(context, context.stack, tintConsumers, light, context.overlay);
-                    tintConsumers.draw();
+                        this.renderBiomeTintedBlocksVanilla(context, context.stack, tintConsumers, light, context.overlay);
+                        tintConsumers.draw();
+                    }
+                    catch (Throwable ignored)
+                    {}
                 }
-                catch (Throwable ignored)
-                {}
 
-                /* Additional pass: animated blocks (portal/fluid) with moving block layer */
-                try
+                if (this.hasAnimatedLayer)
                 {
-                    VertexConsumerProvider.Immediate animConsumers = VertexConsumerProvider.immediate(Tessellator.getInstance().getBuffer());
+                    try
+                    {
+                        VertexConsumerProvider.Immediate animConsumers = VertexConsumerProvider.immediate(Tessellator.getInstance().getBuffer());
 
-                    this.renderAnimatedBlocksVanilla(context, context.stack, animConsumers, light, context.overlay);
-                    animConsumers.draw();
+                        this.renderAnimatedBlocksVanilla(context, context.stack, animConsumers, light, context.overlay);
+                        animConsumers.draw();
+                    }
+                    catch (Throwable ignored)
+                    {}
                 }
-                catch (Throwable ignored)
-                {}
             }
 
             gameRenderer.getLightmapTextureManager().disable();
@@ -505,20 +574,26 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         info.pivotY = cy;
         info.pivotZ = cz - parityZAuto;
 
-        /* Create virtual view with all blocks */
-        ArrayList<VirtualBlockRenderView.Entry> entries = new ArrayList<>();
-
-        for (BlockEntry be : this.blocks)
+        if (this.entriesCache == null || this.entriesCache.length != this.blocks.size())
         {
-            entries.add(new VirtualBlockRenderView.Entry(be.state, be.pos));
+            this.entriesCache = new VirtualBlockRenderView.Entry[this.blocks.size()];
+
+            for (int i = 0; i < this.blocks.size(); i++)
+            {
+                BlockEntry be = this.blocks.get(i);
+                this.entriesCache[i] = new VirtualBlockRenderView.Entry(be.state, be.pos);
+            }
         }
 
-        boolean lightsEnabled;
-        int lightIntensity;
-        lightsEnabled = this.form.emitLight.get();
-        lightIntensity = this.form.lightIntensity.get();
+        boolean lightsEnabled = this.form.emitLight.get();
+        int lightIntensity = this.form.lightIntensity.get();
 
-        info.view = new VirtualBlockRenderView(entries)
+        if (this.cachedView == null)
+        {
+            this.cachedView = new VirtualBlockRenderView(Arrays.asList(this.entriesCache));
+        }
+
+        info.view = this.cachedView
             .setBiomeOverride(this.form.biomeId.get())
             .setLightsEnabled(lightsEnabled)
             .setLightIntensity(lightIntensity);
@@ -701,7 +776,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         RenderInfo info = this.calculateRenderInfo(context, false);
 
-        for (BlockEntry entry : this.blocks)
+        for (BlockEntry entry : this.animatedBlocks)
         {
             boolean shadersEnabled;
             RenderLayer layer;
@@ -763,7 +838,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         RenderInfo info = this.calculateRenderInfo(context, false);
 
-        for (BlockEntry entry : this.blocks)
+        for (BlockEntry entry : this.biomeTintedBlocks)
         {
             boolean shadersEnabledTint;
             RenderLayer layer;
@@ -875,8 +950,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             || state.isOf(Blocks.SHORT_GRASS)
             || state.isOf(Blocks.TALL_GRASS)
             || state.isOf(Blocks.LARGE_FERN);
-
-            
     }
 
     /**
@@ -888,14 +961,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         RenderInfo info = this.calculateRenderInfo(context, false);
         BlockEntityRenderDispatcher beDispatcher = MinecraftClient.getInstance().getBlockEntityRenderDispatcher();
 
-        for (BlockEntry entry : this.blocks)
+        for (BlockEntry entry : this.blockEntitiesList)
         {
             Block block = entry.state.getBlock();
-
-            if (!(block instanceof BlockEntityProvider))
-            {
-                continue;
-            }
 
             stack.push();
             stack.translate(entry.pos.getX() - info.pivotX, entry.pos.getY() - info.pivotY, entry.pos.getZ() - info.pivotZ);
@@ -980,26 +1048,23 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             /* Nothing selected; clear to avoid ghost render. */
             this.blocks.clear();
+            this.animatedBlocks.clear();
+            this.biomeTintedBlocks.clear();
+            this.blockEntitiesList.clear();
             this.size = BlockPos.ORIGIN;
             this.boundsMin = null;
             this.boundsMax = null;
-            this.lastFile = null;
             this.vaoDirty = true;
             this.vaoPickingDirty = true;
-
-            if (this.structureVao instanceof ModelVAO)
-            {
-                ((ModelVAO) this.structureVao).delete();
-            }
-
-            this.structureVao = null;
-
-            if (this.structureVaoPicking instanceof ModelVAO)
-            {
-                ((ModelVAO) this.structureVaoPicking).delete();
-            }
-
-            this.structureVaoPicking = null;
+            this.hasTranslucentLayer = false;
+            this.hasCutoutLayer = false;
+            this.hasAnimatedLayer = false;
+            this.hasBiomeTintedLayer = false;
+            this.hasBlockEntityLayer = false;
+            this.entriesCache = null;
+            this.cachedView = null;
+            this.clearCachedVao();
+            this.lastFile = null;
 
             return;
         }
@@ -1012,26 +1077,23 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         File nbtFile = BBSMod.getProvider().getFile(Link.create(file));
 
         this.blocks.clear();
+        this.animatedBlocks.clear();
+        this.biomeTintedBlocks.clear();
+        this.blockEntitiesList.clear();
         this.size = BlockPos.ORIGIN;
         this.boundsMin = null;
         this.boundsMax = null;
+        this.clearCachedVao();
         this.lastFile = file;
         this.vaoDirty = true;
         this.vaoPickingDirty = true;
-
-        if (this.structureVao instanceof ModelVAO)
-        {
-            ((ModelVAO) this.structureVao).delete();
-        }
-
-        this.structureVao = null;
-
-        if (this.structureVaoPicking instanceof ModelVAO)
-        {
-            ((ModelVAO) this.structureVaoPicking).delete();
-        }
-
-        this.structureVaoPicking = null;
+        this.hasTranslucentLayer = false;
+        this.hasCutoutLayer = false;
+        this.hasAnimatedLayer = false;
+        this.hasBiomeTintedLayer = false;
+        this.hasBlockEntityLayer = false;
+        this.entriesCache = null;
+        this.cachedView = null;
 
         /* Try reading as external file if exists; otherwise use internal assets InputStream. */
         if (nbtFile != null && nbtFile.exists())
@@ -1107,7 +1169,19 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         provider.setSubstitute(null);
 
         data = collector.toData();
-        this.structureVao = new ModelVAO(data);
+
+        if (this.lastFile != null)
+        {
+            VaoHolder holder = VAO_CACHE.computeIfAbsent(this.lastFile, k -> new VaoHolder());
+
+            if (holder.vao instanceof ModelVAO)
+            {
+                ((ModelVAO) holder.vao).delete();
+            }
+
+            holder.vao = new ModelVAO(data);
+        }
+
         this.vaoDirty = false;
     }
 
@@ -1155,8 +1229,67 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         provider.setSubstitute(null);
 
         data = collector.toData();
-        this.structureVaoPicking = new ModelVAO(data);
+
+        if (this.lastFile != null)
+        {
+            VaoHolder holder = VAO_CACHE.computeIfAbsent(this.lastFile, k -> new VaoHolder());
+
+            if (holder.picking instanceof ModelVAO)
+            {
+                ((ModelVAO) holder.picking).delete();
+            }
+
+            holder.picking = new ModelVAO(data);
+        }
+
         this.vaoPickingDirty = false;
+    }
+
+    private IModelVAO getStructureVao()
+    {
+        if (this.lastFile == null)
+        {
+            return null;
+        }
+
+        VaoHolder holder = VAO_CACHE.get(this.lastFile);
+
+        return holder != null ? holder.vao : null;
+    }
+
+    private IModelVAO getStructureVaoPicking()
+    {
+        if (this.lastFile == null)
+        {
+            return null;
+        }
+
+        VaoHolder holder = VAO_CACHE.get(this.lastFile);
+
+        return holder != null ? holder.picking : null;
+    }
+
+    private void clearCachedVao()
+    {
+        if (this.lastFile == null)
+        {
+            return;
+        }
+
+        VaoHolder holder = VAO_CACHE.remove(this.lastFile);
+
+        if (holder != null)
+        {
+            if (holder.vao instanceof ModelVAO)
+            {
+                ((ModelVAO) holder.vao).delete();
+            }
+
+            if (holder.picking instanceof ModelVAO)
+            {
+                ((ModelVAO) holder.picking).delete();
+            }
+        }
     }
 
     private void parseStructure(NbtCompound root)
@@ -1214,7 +1347,38 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                         continue;
                     }
 
-                    this.blocks.add(new BlockEntry(state, pos));
+                    BlockEntry blockEntry = new BlockEntry(state, pos);
+
+                    this.blocks.add(blockEntry);
+
+                    RenderLayer baseLayer = RenderLayers.getBlockLayer(state);
+
+                    if (baseLayer == RenderLayer.getTranslucent() || baseLayer == RenderLayer.getTranslucentMovingBlock())
+                    {
+                        this.hasTranslucentLayer = true;
+                    }
+                    else if (baseLayer == RenderLayer.getCutout() || baseLayer == RenderLayer.getCutoutMipped())
+                    {
+                        this.hasCutoutLayer = true;
+                    }
+
+                    if (this.isAnimatedTexture(state))
+                    {
+                        this.animatedBlocks.add(blockEntry);
+                        this.hasAnimatedLayer = true;
+                    }
+
+                    if (this.isBiomeTinted(state))
+                    {
+                        this.biomeTintedBlocks.add(blockEntry);
+                        this.hasBiomeTintedLayer = true;
+                    }
+
+                    if (state.getBlock() instanceof BlockEntityProvider)
+                    {
+                        this.blockEntitiesList.add(blockEntry);
+                        this.hasBlockEntityLayer = true;
+                    }
 
                     /* Update bounds */
                     if (pos.getX() < minX) minX = pos.getX();
