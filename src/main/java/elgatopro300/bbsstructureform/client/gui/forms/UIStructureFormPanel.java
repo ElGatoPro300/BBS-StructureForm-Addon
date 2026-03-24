@@ -10,10 +10,8 @@ import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.UIFormPanel;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIStringOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
-import mchorse.bbs_mod.ui.framework.elements.buttons.UIToggle;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
-import mchorse.bbs_mod.ui.framework.elements.input.UITrackpad;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIListOverlayPanel;
@@ -38,8 +36,6 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
     public UIButton pickBiome;
     public UITextbox structureFile;
     public UIColor color;
-    public UIToggle toggleLight;
-    public UITrackpad lightIntensity;
     /* Pivot controls removed per request; structure pivots automatically */
 
     public UIStructureFormPanel(UIForm editor)
@@ -50,20 +46,12 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.structureFile = new UITextbox(100, (s) -> this.form.structureFile.set(s)).path().border();
         this.color = new UIColor((c) -> this.form.color.set(Color.rgba(c))).withAlpha();
         this.pickBiome = new UIButton(L10n.lang("bbs.structureform.ui.pick_biome"), (b) -> this.pickBiome());
-        // Inicializar con valor por defecto; se sincroniza en startEdit
-        this.toggleLight = new UIToggle(L10n.lang("bbs.structureform.ui.emit_light"), false, (t) -> this.toggleLight(t));
-        this.lightIntensity = new UITrackpad((v) -> this.setLightIntensity(v.intValue()))
-                .integer()
-                .limit(1D, 15D);
-
         // Pivot UI removed; calculate center moved to Transform panel
 
         /* Quitar etiquetas; mostrar solo los controles */
         this.options.add(this.color);
         this.options.add(this.pickStructure);
         this.options.add(this.pickBiome);
-        this.options.add(this.toggleLight);
-        this.options.add(UI.label(L10n.lang("bbs.structureform.ui.light_intensity")).marginTop(6), this.lightIntensity);
 
         // Pivot controls removed
     }
@@ -126,18 +114,6 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         UIOverlay.addOverlay(this.getContext(), overlay, 280, 0.5F);
     }
 
-    private void toggleLight(UIToggle t)
-    {
-        this.form.emitLight.set(t.getValue());
-    }
-
-    private void setLightIntensity(int v)
-    {
-        int clamped = Math.max(1, Math.min(15, v));
-        this.form.lightIntensity.set(clamped);
-    }
-
-
     /* calculate center moved to Transform panel */
 
 
@@ -183,8 +159,6 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
 
         this.structureFile.setText(form.structureFile.get());
         this.color.setColor(form.color.get().getARGBColor());
-        this.toggleLight.setValue(form.emitLight.get());
-        this.lightIntensity.setValue((double) form.lightIntensity.get());
         // Pivot controls removed
     }
 }

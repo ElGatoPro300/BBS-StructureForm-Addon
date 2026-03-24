@@ -1044,7 +1044,23 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     {
         String file = this.form.structureFile.get();
 
-        if (file == null || file.isEmpty())
+        String linkString = file;
+        if (linkString != null && !linkString.isEmpty())
+        {
+            /* Si no hay namespace, asumir que es interno del addon */
+            if (!linkString.contains(":"))
+            {
+                linkString = "bbs-structureform:" + linkString;
+            }
+
+            /* Para estructuras internas, añadir extensión .nbt si falta */
+            if (linkString.startsWith("bbs-structureform:") && !linkString.endsWith(".nbt"))
+            {
+                linkString = linkString + ".nbt";
+            }
+        }
+
+        if (linkString == null || linkString.isEmpty())
         {
             /* Nothing selected; clear to avoid ghost render. */
             this.blocks.clear();
@@ -1069,12 +1085,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return;
         }
 
-        if (file.equals(this.lastFile) && !this.blocks.isEmpty())
+        if (file != null && file.equals(this.lastFile) && !this.blocks.isEmpty())
         {
             return;
         }
 
-        File nbtFile = BBSMod.getProvider().getFile(Link.create(file));
+        File nbtFile = BBSMod.getProvider().getFile(Link.create(linkString));
 
         this.blocks.clear();
         this.animatedBlocks.clear();
@@ -1111,7 +1127,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         /* If no File (internal assets), read via provider InputStream. */
-        try (InputStream is = BBSMod.getProvider().getAsset(Link.create(file)))
+        try (InputStream is = BBSMod.getProvider().getAsset(Link.create(linkString)))
         {
             try
             {
