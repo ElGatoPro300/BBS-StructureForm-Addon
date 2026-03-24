@@ -32,8 +32,18 @@ public class UIStringKeyframeFactory extends UIKeyframeFactory<String>
         this.string.setText(keyframe.getValue());
 
         UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
-        boolean isStructureFile = sheet != null && ("structure_file".equals(sheet.id) || sheet.id.endsWith("/structure_file"));
-        boolean isBiomeId = sheet != null && ("biome_id".equals(sheet.id) || sheet.id.endsWith("/biome_id"));
+        boolean isStructureFile = sheet != null && (
+                "structure_file".equals(sheet.id) ||
+                sheet.id.endsWith("/structure_file") ||
+                "structure".equals(sheet.id) ||
+                sheet.id.endsWith("/structure")
+        );
+        boolean isBiomeId = sheet != null && (
+                "biome_id".equals(sheet.id) ||
+                sheet.id.endsWith("/biome_id") ||
+                "biome".equals(sheet.id) ||
+                sheet.id.endsWith("/biome")
+        );
 
         if (isStructureFile)
         {
@@ -94,7 +104,12 @@ public class UIStringKeyframeFactory extends UIKeyframeFactory<String>
             this.scroll.add(pickBiome);
         }
 
-        this.scroll.add(this.string);
+        /* Solo permitir escritura manual para pistas genéricas;
+           para structure_file y biome_id se fuerza uso de los botones. */
+        if (!isStructureFile && !isBiomeId)
+        {
+            this.scroll.add(this.string);
+        }
     }
 
     private static java.util.Set<String> getSavedStructureFiles()
