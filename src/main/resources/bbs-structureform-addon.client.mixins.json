@@ -5,7 +5,8 @@
 	"client": [
 		"ExtraFormSectionMixin",
 		"FormUtilsClientMixin",
-		"UIFormEditorMixin"
+		"UIFormEditorMixin",
+		"UIStringKeyframeFactoryMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
