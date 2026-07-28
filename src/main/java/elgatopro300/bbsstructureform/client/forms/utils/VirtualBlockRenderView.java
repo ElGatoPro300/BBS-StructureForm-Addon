@@ -288,10 +288,14 @@ public class VirtualBlockRenderView implements BlockRenderView
         if (MinecraftClient.getInstance().world != null)
         {
             BlockPos worldPos = this.worldAnchor.add(this.baseDx + pos.getX(), this.baseDy + pos.getY(), this.baseDz + pos.getZ());
-            return MinecraftClient.getInstance().world.getColor(worldPos, colorResolver);
+            int color = MinecraftClient.getInstance().world.getColor(worldPos, colorResolver);
+            if (color != 0)
+            {
+                return color;
+            }
         }
 
-        return 0xFFFFFF;
+        return 0x77AB2F;
     }
 
     @Override
@@ -314,6 +318,11 @@ public class VirtualBlockRenderView implements BlockRenderView
         int worldLevel = 0;
         BlockPos worldPos = this.worldAnchor.add(this.baseDx + pos.getX(), this.baseDy + pos.getY(), this.baseDz + pos.getZ());
         worldLevel = MinecraftClient.getInstance().world.getLightLevel(type, worldPos);
+
+        if (type == LightType.SKY)
+        {
+            return Math.max(15, worldLevel);
+        }
 
         /* For block light, combine with that emitted by luminous blocks
          * contained in this virtual view (not present in the real world). */
