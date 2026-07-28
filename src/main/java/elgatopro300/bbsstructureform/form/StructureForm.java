@@ -8,8 +8,6 @@ import mchorse.bbs_mod.settings.values.numeric.ValueFloat;
 import mchorse.bbs_mod.settings.values.numeric.ValueInt;
 import mchorse.bbs_mod.utils.colors.Color;
 
-import org.joml.Vector4f;
-
 /**
  * StructureForm
  *
@@ -19,9 +17,9 @@ import org.joml.Vector4f;
 public class StructureForm extends Form
 {
     /** Ruta relativa dentro de assets al archivo de estructura (.nbt), por ejemplo: "structures/casa.nbt" */
-    public final ValueString structureFile = new ValueString("structure_file", "structures/tree");
+    public final ValueString structureFile = new ValueString("structure_file", "");
     /** Color de tinte aplicado al renderizado (multiplicado) */
-    public final ValueColor color = new ValueColor("color", Color.white());
+    public final ValueColor color = new ValueColor("color", new Color(1F, 1F, 1F, 1F));
     /** Bioma seleccionado para coloreo (override). Vacío para usar el del mundo */
     public final ValueString biomeId = new ValueString("biome_id", "");
     /** Alterna si los bloques de iluminación de la estructura emiten luz */
@@ -30,10 +28,16 @@ public class StructureForm extends Form
     public final ValueInt lightIntensity = new ValueInt("light_intensity", 15);
     /** Aplica el tinte global también a Block Entities (cofres, carteles, etc.) */
     public final ValueBoolean tintBlockEntities = new ValueBoolean("tint_block_entities", false);
+    /** Alterna el renderizado de fluidos (agua/lava) en la estructura */
+    public final ValueBoolean renderFluid = new ValueBoolean("render_fluid", false);
     /** Pivote manual en coordenadas de bloque (permite decimales) */
     public final ValueFloat pivotX = new ValueFloat("pivot_x", 0f);
     public final ValueFloat pivotY = new ValueFloat("pivot_y", 0f);
     public final ValueFloat pivotZ = new ValueFloat("pivot_z", 0f);
+    /** Escala de la estructura por eje */
+    public final ValueFloat scaleX = new ValueFloat("scale_x", 1f);
+    public final ValueFloat scaleY = new ValueFloat("scale_y", 1f);
+    public final ValueFloat scaleZ = new ValueFloat("scale_z", 1f);
 
     public StructureForm()
     {
@@ -42,23 +46,31 @@ public class StructureForm extends Form
         this.add(this.structureFile);
         this.add(this.color);
         this.add(this.biomeId);
-        this.emitLight.invisible();
-        this.lightIntensity.invisible();
         this.add(this.emitLight);
         this.add(this.lightIntensity);
+
         /* Ocultar del timeline el tinte de Block Entities */
         this.tintBlockEntities.invisible();
         this.add(this.tintBlockEntities);
+
         /* Ocultar pistas escalares del timeline; se mantienen para UI manual */
         this.pivotX.invisible();
         this.pivotY.invisible();
         this.pivotZ.invisible();
-
         this.add(this.pivotX);
         this.add(this.pivotY);
         this.add(this.pivotZ);
 
-        /* Mantener pistas visibles para compatibilidad */
+        this.scaleX.invisible();
+        this.scaleY.invisible();
+        this.scaleZ.invisible();
+        this.add(this.scaleX);
+        this.add(this.scaleY);
+        this.add(this.scaleZ);
+
+        /* Ocultar del timeline */
+        this.renderFluid.invisible();
+        this.add(this.renderFluid);
     }
 
     @Override
