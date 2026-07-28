@@ -1,5 +1,6 @@
 package elgatopro300.bbsstructureform;
 
+import elgatopro300.bbsstructureform.client.packs.MinecraftSourcePack;
 import elgatopro300.bbsstructureform.client.packs.WorldStructuresSourcePack;
 import elgatopro300.bbsstructureform.form.StructureForm;
 
@@ -23,6 +24,7 @@ public class BBSStructureFormAddon extends BBSAddon implements ModInitializer
             BBSMod.getForms().register(Link.bbs("structure"), StructureForm.class);
             BBSMod.getProvider().register(new InternalAssetsSourcePack("bbs-structureform", "assets/bbs_structureform", BBSStructureFormAddon.class));
             BBSMod.getProvider().register(new WorldStructuresSourcePack());
+            BBSMod.getProvider().register(new MinecraftSourcePack());
         }
         catch (Throwable ignored) {}
     }
@@ -42,6 +44,7 @@ public class BBSStructureFormAddon extends BBSAddon implements ModInitializer
         {
             event.provider.register(new InternalAssetsSourcePack("bbs-structureform", "assets/bbs_structureform", BBSStructureFormAddon.class));
             event.provider.register(new WorldStructuresSourcePack());
+            event.provider.register(new MinecraftSourcePack());
         }
         catch (Throwable ignored) {}
     }

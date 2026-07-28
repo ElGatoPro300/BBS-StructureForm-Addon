@@ -207,7 +207,8 @@ public class VirtualBlockRenderView implements BlockRenderView
     @Override
     public FluidState getFluidState(BlockPos pos)
     {
-        return Fluids.EMPTY.getDefaultState();
+        BlockState state = getBlockState(pos);
+        return state != null ? state.getFluidState() : Fluids.EMPTY.getDefaultState();
     }
 
     @Override

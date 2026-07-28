@@ -1,9 +1,11 @@
 package elgatopro300.bbsstructureform;
 
 import elgatopro300.bbsaddonengine.BBSAddonEngineClient;
+import elgatopro300.bbsaddonengine.mixin.UIKeyframeFactoryAccessor;
 import elgatopro300.bbsaddonengine.utils.HelperUIReplaysEditor;
 import elgatopro300.bbsstructureform.client.forms.renderer.StructureFormRenderer;
 import elgatopro300.bbsstructureform.client.gui.forms.UIStructureForm;
+import elgatopro300.bbsstructureform.client.gui.UIStructureStringKeyframeFactory;
 import elgatopro300.bbsstructureform.form.StructureForm;
 import elgatopro300.bbsstructureform.importers.StructureImporter;
 
@@ -21,7 +23,10 @@ import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.importers.Importers;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.forms.editors.UIFormEditor;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIKeyframeFactory;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
+import mchorse.bbs_mod.utils.keyframes.factories.KeyframeFactories;
 
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
@@ -56,6 +61,26 @@ public class BBSStructureFormClientAddon extends BBSClientAddon implements Clien
         {
             FormUtilsClient.register(StructureForm.class, StructureFormRenderer::new);
             UIFormEditor.register(StructureForm.class, UIStructureForm::new);
+
+            UIKeyframeFactory.IUIKeyframeFactoryFactory<String> originalStringFactory = 
+                UIKeyframeFactoryAccessor.getFactories().get(KeyframeFactories.STRING);
+
+            UIKeyframeFactoryAccessor.getFactories().put(
+                KeyframeFactories.STRING,
+                (keyframe, editor) -> {
+                    UIKeyframeSheet sheet = editor.getGraph().getSheet(keyframe);
+                    if (sheet != null && (
+                        "structure_file".equals(sheet.id) || sheet.id.endsWith("/structure_file") ||
+                        "structure".equals(sheet.id) || sheet.id.endsWith("/structure") ||
+                        "biome_id".equals(sheet.id) || sheet.id.endsWith("/biome_id") ||
+                        "biome".equals(sheet.id) || sheet.id.endsWith("/biome")
+                    ))
+                    {
+                        return new UIStructureStringKeyframeFactory(keyframe, editor);
+                    }
+                    return originalStringFactory == null ? null : originalStringFactory.create(keyframe, editor);
+                }
+            );
         }
         catch (Throwable ignored) {}
 
