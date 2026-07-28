@@ -11,6 +11,12 @@
 	"icon": "assets/bbs_structureform/icon.png",
 	"environment": "*",
 	"entrypoints": {
+		"main": [
+			"elgatopro300.bbsstructureform.BBSStructureFormAddon"
+		],
+		"client": [
+			"elgatopro300.bbsstructureform.BBSStructureFormClientAddon"
+		],
 		"bbs-addon": [
 			"elgatopro300.bbsstructureform.BBSStructureFormAddon"
 		],
