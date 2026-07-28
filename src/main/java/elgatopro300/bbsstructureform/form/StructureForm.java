@@ -83,6 +83,11 @@ public class StructureForm extends Form
             return super.getDefaultDisplayName();
         }
 
+        if (path.contains(":"))
+        {
+            path = path.substring(path.indexOf(':') + 1);
+        }
+
         int slash = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
         String prefix = slash >= 0 ? path.substring(0, slash + 1) : "";
         String name = slash >= 0 ? path.substring(slash + 1) : path;
