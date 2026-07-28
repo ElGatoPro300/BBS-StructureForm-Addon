@@ -1,21 +1,21 @@
 package elgatopro300.bbsstructureform.client.forms.utils;
 
 import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
+import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.fluid.FluidState;
+import net.minecraft.fluid.Fluids;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.util.Identifier;
-import net.minecraft.fluid.FluidState;
-import net.minecraft.fluid.Fluids;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Direction;
 import net.minecraft.world.BlockRenderView;
 import net.minecraft.world.LightType;
-import net.minecraft.world.chunk.light.LightingProvider;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.Blocks;
-import net.minecraft.world.biome.ColorResolver;
 import net.minecraft.world.biome.Biome;
+import net.minecraft.world.biome.ColorResolver;
+import net.minecraft.world.chunk.light.LightingProvider;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -126,6 +126,26 @@ public class VirtualBlockRenderView implements BlockRenderView
         return this;
     }
 
+    protected BlockPos getWorldAnchor()
+    {
+        return this.worldAnchor;
+    }
+
+    protected int getBaseDx()
+    {
+        return this.baseDx;
+    }
+
+    protected int getBaseDy()
+    {
+        return this.baseDy;
+    }
+
+    protected int getBaseDz()
+    {
+        return this.baseDz;
+    }
+
     /**
      * Sets a biome to use for color queries. Pass null or "" to clear.
      */
@@ -207,7 +227,8 @@ public class VirtualBlockRenderView implements BlockRenderView
     @Override
     public FluidState getFluidState(BlockPos pos)
     {
-        return Fluids.EMPTY.getDefaultState();
+        BlockState state = getBlockState(pos);
+        return state != null ? state.getFluidState() : Fluids.EMPTY.getDefaultState();
     }
 
     @Override
@@ -267,10 +288,14 @@ public class VirtualBlockRenderView implements BlockRenderView
         if (MinecraftClient.getInstance().world != null)
         {
             BlockPos worldPos = this.worldAnchor.add(this.baseDx + pos.getX(), this.baseDy + pos.getY(), this.baseDz + pos.getZ());
-            return MinecraftClient.getInstance().world.getColor(worldPos, colorResolver);
+            int color = MinecraftClient.getInstance().world.getColor(worldPos, colorResolver);
+            if (color != 0)
+            {
+                return color;
+            }
         }
 
-        return 0xFFFFFF;
+        return 0x77AB2F;
     }
 
     @Override
@@ -293,6 +318,11 @@ public class VirtualBlockRenderView implements BlockRenderView
         int worldLevel = 0;
         BlockPos worldPos = this.worldAnchor.add(this.baseDx + pos.getX(), this.baseDy + pos.getY(), this.baseDz + pos.getZ());
         worldLevel = MinecraftClient.getInstance().world.getLightLevel(type, worldPos);
+
+        if (type == LightType.SKY)
+        {
+            return Math.max(15, worldLevel);
+        }
 
         /* For block light, combine with that emitted by luminous blocks
          * contained in this virtual view (not present in the real world). */

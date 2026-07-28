@@ -1,7 +1,19 @@
 {
-    "bbs.structureform.ui.pick_structure": "Elegir Estructura",
-    "bbs.structureform.ui.pick_biome": "Elegir Bioma",
+    "bbs.forms.structure": "Estructura",
+    "bbs.forms.bbs.structure": "Estructura",
+    "bbs.forms.bbs-structureform.structure": "Estructura",
+    "bbs.structureform.ui.structure": "Estructura",
+    "bbs.structureform.ui.pick_structure": "Seleccionar Estructura",
+    "bbs.structureform.ui.pick_biome": "Seleccionar Bioma",
     "bbs.structureform.ui.emit_light": "Emitir Luz",
-    "bbs.structureform.ui.light_intensity": "Intensidad de Luz",
-    "bbs.structureform.ui.structure": "Estructura"
+    "bbs.structureform.ui.render_fluid": "Renderizar Fluidos",
+    "bbs.structureform.ui.light_intensity": "Intensidad de Luz (1-15)",
+    "bbs.structureform.ui.saved": "Guardadas",
+    "bbs.structureform.ui.vanilla": "Vanilla",
+    "bbs.structureform.ui.favorites": "Favoritas",
+    "bbs.ui.forms.editors.structure.fluid": "Fluido",
+    "bbs.ui.forms.editors.structure.light": "Luz",
+    "bbs.ui.forms.editors.structure.light_intensity": "Intensidad de luz (1-15)",
+    "bbs.ui.forms.editors.structure.pick_biome": "Seleccionar bioma...",
+    "bbs.ui.forms.editors.structure.pick_structure": "Seleccionar estructura..."
 }

@@ -1,7 +1,19 @@
 {
+    "bbs.forms.structure": "Structure",
+    "bbs.forms.bbs.structure": "Structure",
+    "bbs.forms.bbs-structureform.structure": "Structure",
+    "bbs.structureform.ui.structure": "Structure",
     "bbs.structureform.ui.pick_structure": "Pick Structure",
     "bbs.structureform.ui.pick_biome": "Pick Biome",
     "bbs.structureform.ui.emit_light": "Emit Light",
-    "bbs.structureform.ui.light_intensity": "Light Intensity",
-    "bbs.structureform.ui.structure": "Structure"
+    "bbs.structureform.ui.render_fluid": "Render Fluid",
+    "bbs.structureform.ui.light_intensity": "Light Intensity (1-15)",
+    "bbs.structureform.ui.saved": "Saved",
+    "bbs.structureform.ui.vanilla": "Vanilla",
+    "bbs.structureform.ui.favorites": "Favorites",
+    "bbs.ui.forms.editors.structure.fluid": "Fluid",
+    "bbs.ui.forms.editors.structure.light": "Light",
+    "bbs.ui.forms.editors.structure.light_intensity": "Light intensity (1-15)",
+    "bbs.ui.forms.editors.structure.pick_biome": "Pick biome...",
+    "bbs.ui.forms.editors.structure.pick_structure": "Pick structure..."
 }

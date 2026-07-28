@@ -12,24 +12,24 @@
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"elgatopro300.bbsstructureform.BBSSTRUCTUREFORMAddon"
+			"elgatopro300.bbsstructureform.BBSStructureFormAddon"
 		],
 		"client": [
-			"elgatopro300.bbsstructureform.BBSSTRUCTUREFORMAddonClient"
+			"elgatopro300.bbsstructureform.BBSStructureFormClientAddon"
+		],
+		"bbs-addon": [
+			"elgatopro300.bbsstructureform.BBSStructureFormAddon"
+		],
+		"bbs-addon-client": [
+			"elgatopro300.bbsstructureform.BBSStructureFormClientAddon"
 		]
 	},
-	"mixins": [
-		"bbs-structureform-addon.mixins.json",
-		{
-			"config": "bbs-structureform-addon.client.mixins.json",
-			"environment": "client"
-		}
-	],
 	"depends": {
 		"fabricloader": ">=0.16.14",
 		"minecraft": "~1.20.1",
 		"java": ">=17",
 		"fabric-api": "*",
-		"bbs": "*"
+		"bbs": "*",
+		"bbs-addon-engine": "*"
 	}
 }
