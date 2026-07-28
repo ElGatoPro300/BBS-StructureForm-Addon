@@ -1,6 +1,7 @@
 package elgatopro300.bbsstructureform.client.gui.forms;
 
 import elgatopro300.bbsstructureform.form.StructureForm;
+
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
@@ -8,27 +9,37 @@ import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.UIKeys;
 import mchorse.bbs_mod.ui.forms.editors.forms.UIForm;
 import mchorse.bbs_mod.ui.forms.editors.panels.UIFormPanel;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIStringOverlayPanel;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIIcon;
 import mchorse.bbs_mod.ui.framework.elements.input.UIColor;
 import mchorse.bbs_mod.ui.framework.elements.input.text.UITextbox;
-import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIListOverlayPanel;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
+import mchorse.bbs_mod.ui.framework.elements.overlay.UIStringOverlayPanel;
 import mchorse.bbs_mod.ui.utils.UI;
 import mchorse.bbs_mod.ui.utils.icons.Icons;
 import mchorse.bbs_mod.utils.colors.Color;
 import mchorse.bbs_mod.utils.colors.Colors;
+
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtIo;
+import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtTagSizeTracker;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.biome.Biome;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
 
 public class UIStructureFormPanel extends UIFormPanel<StructureForm>
 {
@@ -58,14 +69,14 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
 
     private void pickStructure()
     {
-        java.util.List<String> list = new java.util.ArrayList<>();
+        List<String> list = new ArrayList<>();
         try {
-            for (mchorse.bbs_mod.resources.Link l : mchorse.bbs_mod.BBSMod.getProvider().getLinksFromPath(new mchorse.bbs_mod.resources.Link("bbs-structureform", "structures"))) {
+            for (Link l : BBSMod.getProvider().getLinksFromPath(new Link("bbs-structureform", "structures"))) {
                 if (l.path.toLowerCase().endsWith(".nbt")) {
                     list.add("bbs-structureform:" + l.path);
                 }
             }
-            for (mchorse.bbs_mod.resources.Link l : mchorse.bbs_mod.BBSMod.getProvider().getLinksFromPath(new mchorse.bbs_mod.resources.Link("world", ""))) {
+            for (Link l : BBSMod.getProvider().getLinksFromPath(new Link("world", ""))) {
                 if (l.path.toLowerCase().endsWith(".nbt")) {
                     list.add("world:" + l.path);
                 }
@@ -76,7 +87,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
             if (value == null || value.isEmpty() || value.equals("None")) {
                 this.setStructure(null);
             } else {
-                this.setStructure(mchorse.bbs_mod.resources.Link.create(value));
+                this.setStructure(Link.create(value));
             }
         });
         String current = this.form.structureFile.get();
@@ -95,7 +106,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         });
 
         // Construir lista de biomas de forma segura
-        java.util.List<String> ids = new java.util.ArrayList<>();
+        List<String> ids = new ArrayList<>();
         try
         {
             if (MinecraftClient.getInstance().world != null)
@@ -125,15 +136,15 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.structureFile.setText(path);
     }
 
-    private static java.util.Set<String> getSavedStructureFiles()
+    private static Set<String> getSavedStructureFiles()
     {
-        java.util.Set<String> locations = new java.util.HashSet<>();
-        java.io.File savedFolder = new java.io.File(mchorse.bbs_mod.BBSMod.getAssetsFolder(), "structures");
+        Set<String> locations = new HashSet<>();
+        File savedFolder = new File(BBSMod.getAssetsFolder(), "structures");
         if (savedFolder.exists() && savedFolder.isDirectory())
         {
-            try (java.util.stream.Stream<java.nio.file.Path> paths = java.nio.file.Files.walk(savedFolder.toPath()))
+            try (Stream<Path> paths = Files.walk(savedFolder.toPath()))
             {
-                paths.filter(java.nio.file.Files::isRegularFile)
+                paths.filter(Files::isRegularFile)
                     .filter(path -> path.toString().endsWith(".nbt"))
                     .forEach(path -> {
                         try

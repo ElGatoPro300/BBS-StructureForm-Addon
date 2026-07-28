@@ -2,6 +2,7 @@ package elgatopro300.bbsstructureform.client.forms.utils;
 
 import mchorse.bbs_mod.cubic.render.vao.ModelVAO;
 import mchorse.bbs_mod.cubic.render.vao.ModelVAOData;
+
 import net.minecraft.client.render.VertexConsumer;
 
 import java.util.ArrayList;

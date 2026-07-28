@@ -1,6 +1,7 @@
 package elgatopro300.bbsstructureform.client.forms.utils;
 
 import mchorse.bbs_mod.utils.colors.Color;
+
 import net.minecraft.client.render.VertexConsumer;
 
 public class RecolorVertexConsumer implements VertexConsumer

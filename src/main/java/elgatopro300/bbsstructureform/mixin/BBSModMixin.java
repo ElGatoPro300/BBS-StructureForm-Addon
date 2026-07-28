@@ -1,11 +1,13 @@
 package elgatopro300.bbsstructureform.mixin;
 
-import elgatopro300.bbsstructureform.form.StructureForm;
-import elgatopro300.bbsstructureform.client.packs.WorldStructuresSourcePack;
 import elgatopro300.bbsstructureform.BBSSTRUCTUREFORMAddon;
+import elgatopro300.bbsstructureform.client.packs.WorldStructuresSourcePack;
+import elgatopro300.bbsstructureform.form.StructureForm;
+
 import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.resources.packs.InternalAssetsSourcePack;
+
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;

@@ -1,15 +1,25 @@
 package elgatopro300.bbsstructureform.client.gui.forms;
 
-import mchorse.bbs_mod.resources.Link;
+import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.l10n.keys.IKey;
+import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.framework.elements.buttons.UIButton;
 import mchorse.bbs_mod.ui.framework.elements.input.UITexturePicker;
-import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframeSheet;
 import mchorse.bbs_mod.ui.framework.elements.input.keyframes.UIKeyframes;
+import mchorse.bbs_mod.ui.framework.elements.input.keyframes.factories.UIKeyframeFactory;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIOverlay;
 import mchorse.bbs_mod.ui.framework.elements.overlay.UIStringOverlayPanel;
 import mchorse.bbs_mod.utils.keyframes.Keyframe;
+
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Stream;
 
 public class UILinkKeyframeFactory extends UIKeyframeFactory<Link>
 {
@@ -24,12 +34,12 @@ public class UILinkKeyframeFactory extends UIKeyframeFactory<Link>
         {
             UIButton pickStructure = new UIButton(IKey.raw("Pick Structure"), (b) ->
             {
-                java.util.List<String> items = new java.util.ArrayList<>();
+                List<String> items = new ArrayList<>();
                 try {
-                    for (Link l : mchorse.bbs_mod.BBSMod.getProvider().getLinksFromPath(new Link("bbs-structureform", "structures"))) {
+                    for (Link l : BBSMod.getProvider().getLinksFromPath(new Link("bbs-structureform", "structures"))) {
                         if (l.path.toLowerCase().endsWith(".nbt")) items.add("bbs-structureform:" + l.path);
                     }
-                    for (Link l : mchorse.bbs_mod.BBSMod.getProvider().getLinksFromPath(new Link("world", ""))) {
+                    for (Link l : BBSMod.getProvider().getLinksFromPath(new Link("world", ""))) {
                         if (l.path.toLowerCase().endsWith(".nbt")) items.add("world:" + l.path);
                     }
                 } catch (Throwable ignored) {}
@@ -56,15 +66,15 @@ public class UILinkKeyframeFactory extends UIKeyframeFactory<Link>
         }
     }
 
-    private static java.util.Set<String> getSavedStructureFiles()
+    private static Set<String> getSavedStructureFiles()
     {
-        java.util.Set<String> locations = new java.util.HashSet<>();
-        java.io.File savedFolder = new java.io.File(mchorse.bbs_mod.BBSMod.getAssetsFolder(), "structures");
+        Set<String> locations = new HashSet<>();
+        File savedFolder = new File(BBSMod.getAssetsFolder(), "structures");
         if (savedFolder.exists() && savedFolder.isDirectory())
         {
-            try (java.util.stream.Stream<java.nio.file.Path> paths = java.nio.file.Files.walk(savedFolder.toPath()))
+            try (Stream<Path> paths = Files.walk(savedFolder.toPath()))
             {
-                paths.filter(java.nio.file.Files::isRegularFile)
+                paths.filter(Files::isRegularFile)
                     .filter(path -> path.toString().endsWith(".nbt"))
                     .forEach(path -> {
                         try
