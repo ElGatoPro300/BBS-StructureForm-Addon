@@ -1,6 +1,8 @@
 package elgatopro300.bbsstructureform.client.forms.renderer;
 
+import elgatopro300.bbsstructureform.client.forms.utils.LightmapModelVAO;
 import elgatopro300.bbsstructureform.client.forms.utils.StructureVAOCollector;
+import elgatopro300.bbsstructureform.client.forms.utils.StructureVirtualBlockRenderView;
 import elgatopro300.bbsstructureform.client.forms.utils.VirtualBlockRenderView;
 import elgatopro300.bbsstructureform.form.StructureForm;
 
@@ -116,6 +118,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     private boolean capturingVAO = false;
     private boolean vaoPickingDirty = true;
     private boolean capturingIncludeSpecialBlocks = false;
+    private boolean lastEmitLight = false;
+    private int lastLightIntensity = 0;
     private boolean hasTranslucentLayer = false;
     private boolean hasCutoutLayer = false;
     private boolean hasAnimatedLayer = false;
@@ -131,6 +135,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             if (holder.vao instanceof ModelVAO)
             {
                 ((ModelVAO) holder.vao).delete();
+            }
+
+            if (holder.vao instanceof LightmapModelVAO)
+            {
+                ((LightmapModelVAO) holder.vao).delete();
             }
 
             if (holder.picking instanceof ModelVAO)
@@ -610,13 +619,19 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         if (this.cachedView == null)
         {
-            this.cachedView = new VirtualBlockRenderView(Arrays.asList(this.entriesCache));
+            this.cachedView = new StructureVirtualBlockRenderView(Arrays.asList(this.entriesCache));
         }
 
         info.view = this.cachedView
             .setBiomeOverride(this.form.biomeId.get())
             .setLightsEnabled(lightsEnabled)
             .setLightIntensity(lightIntensity);
+
+        if (this.cachedView instanceof StructureVirtualBlockRenderView structView)
+        {
+            structView.setVirtualMode(lightsEnabled, lightIntensity);
+            structView.setIgnoreWorldBlockLight(lightsEnabled);
+        }
 
         /* World anchor: for items/UI use player position (more stable) */
         /* to avoid anchoring at (0,0,0) and getting low world light. */
@@ -894,12 +909,20 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             tint = this.form.color.get();
             recolor = BBSRendering.getColorConsumer(tint);
 
-            if (recolor != null)
+            if (this.form.renderFluid.get() && !entry.state.getFluidState().isEmpty())
             {
-                vc = recolor.apply(vc);
+                VertexConsumer fluidVc = consumers.getBuffer(RenderLayers.getFluidLayer(entry.state.getFluidState()));
+                if (recolor != null)
+                {
+                    fluidVc = recolor.apply(fluidVc);
+                }
+                fluidVc = new TransformingVertexConsumer(fluidVc, stack.peek(), entry.pos, true);
+                MinecraftClient.getInstance().getBlockRenderManager().renderFluid(entry.pos, info.view, fluidVc, entry.state, entry.state.getFluidState());
             }
-
-            MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, Random.create());
+            if (entry.state.getRenderType() != net.minecraft.block.BlockRenderType.INVISIBLE)
+            {
+                MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, Random.create());
+            }
             stack.pop();
         }
 
@@ -1176,13 +1199,14 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         /* Capture geometry in a VAO using vanilla pipeline but substituting the consumer. */
         CustomVertexConsumerProvider provider = FormUtilsClient.getProvider();
         StructureVAOCollector collector = new StructureVAOCollector();
+        LightmapStructureVAOCollector lightWrapper = new LightmapStructureVAOCollector(collector);
         MatrixStack captureStack = new MatrixStack();
         FormRenderingContext captureContext;
         boolean useEntityLayers = false; /* capture with block layers */
         ModelVAOData data;
 
         /* Substitute any consumer with our collector. */
-        provider.setSubstitute(vc -> collector);
+        provider.setSubstitute(vc -> lightWrapper);
 
         captureContext = new FormRenderingContext()
             .set(FormRenderType.PREVIEW, null, captureStack, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
@@ -1224,7 +1248,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 ((ModelVAO) holder.vao).delete();
             }
 
-            holder.vao = new ModelVAO(data);
+            if (holder.vao instanceof LightmapModelVAO)
+            {
+                ((LightmapModelVAO) holder.vao).delete();
+            }
+
+            holder.vao = new LightmapModelVAO(data, lightWrapper.getLightmapData());
         }
 
         this.vaoDirty = false;
@@ -1328,6 +1357,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             if (holder.vao instanceof ModelVAO)
             {
                 ((ModelVAO) holder.vao).delete();
+            }
+
+            if (holder.vao instanceof LightmapModelVAO)
+            {
+                ((LightmapModelVAO) holder.vao).delete();
             }
 
             if (holder.picking instanceof ModelVAO)
@@ -1541,6 +1575,200 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         BlockEntry(BlockState state, BlockPos pos)
         {
             this(state, pos, null);
+        }
+    }
+
+    private static class TransformingVertexConsumer implements VertexConsumer
+    {
+        private final VertexConsumer parent;
+        private final Matrix4f positionMatrix;
+        private final org.joml.Matrix3f normalMatrix;
+        private final BlockPos offset;
+        private final boolean fixOverlay;
+
+        public TransformingVertexConsumer(VertexConsumer parent, MatrixStack.Entry entry, BlockPos offset, boolean fixOverlay)
+        {
+            this.parent = parent;
+            this.positionMatrix = new Matrix4f(entry.getPositionMatrix());
+            this.normalMatrix = new org.joml.Matrix3f(entry.getNormalMatrix());
+            this.offset = offset;
+            this.fixOverlay = fixOverlay;
+        }
+
+        @Override
+        public VertexConsumer vertex(double x, double y, double z)
+        {
+            float nx = (float) x - this.offset.getX();
+            float ny = (float) y - this.offset.getY();
+            float nz = (float) z - this.offset.getZ();
+
+            float tx = this.positionMatrix.m00() * nx + this.positionMatrix.m10() * ny + this.positionMatrix.m20() * nz + this.positionMatrix.m30();
+            float ty = this.positionMatrix.m01() * nx + this.positionMatrix.m11() * ny + this.positionMatrix.m21() * nz + this.positionMatrix.m31();
+            float tz = this.positionMatrix.m02() * nx + this.positionMatrix.m12() * ny + this.positionMatrix.m22() * nz + this.positionMatrix.m32();
+
+            this.parent.vertex(tx, ty, tz);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer color(int red, int green, int blue, int alpha)
+        {
+            this.parent.color(red, green, blue, alpha);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer texture(float u, float v)
+        {
+            this.parent.texture(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer overlay(int u, int v)
+        {
+            this.parent.overlay(this.fixOverlay ? 0 : u, this.fixOverlay ? 10 : v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer light(int u, int v)
+        {
+            this.parent.light(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer normal(float x, float y, float z)
+        {
+            float tx = this.normalMatrix.m00() * x + this.normalMatrix.m10() * y + this.normalMatrix.m20() * z;
+            float ty = this.normalMatrix.m01() * x + this.normalMatrix.m11() * y + this.normalMatrix.m21() * z;
+            float tz = this.normalMatrix.m02() * x + this.normalMatrix.m12() * y + this.normalMatrix.m22() * z;
+
+            this.parent.normal(tx, ty, tz);
+            return this;
+        }
+
+        @Override
+        public void next()
+        {
+            this.parent.next();
+        }
+
+        @Override
+        public void fixedColor(int red, int green, int blue, int alpha)
+        {
+            this.parent.fixedColor(red, green, blue, alpha);
+        }
+
+        @Override
+        public void unfixColor()
+        {
+            this.parent.unfixColor();
+        }
+    }
+
+    private static class LightmapStructureVAOCollector implements VertexConsumer
+    {
+        private final StructureVAOCollector delegate;
+        private int[] lightData = new int[8192];
+        private int lightSize = 0;
+        private final int[] quadLights = new int[4];
+        private int quadIndex = 0;
+
+        public LightmapStructureVAOCollector(StructureVAOCollector delegate)
+        {
+            this.delegate = delegate;
+        }
+
+        public int[] getLightmapData()
+        {
+            return Arrays.copyOf(this.lightData, this.lightSize);
+        }
+
+        @Override
+        public VertexConsumer vertex(double x, double y, double z)
+        {
+            this.delegate.vertex(x, y, z);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer color(int red, int green, int blue, int alpha)
+        {
+            this.delegate.color(red, green, blue, alpha);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer texture(float u, float v)
+        {
+            this.delegate.texture(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer overlay(int u, int v)
+        {
+            this.delegate.overlay(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer light(int u, int v)
+        {
+            this.quadLights[this.quadIndex] = (u & 0xFFFF) | ((v & 0xFFFF) << 16);
+            this.delegate.light(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer normal(float x, float y, float z)
+        {
+            this.delegate.normal(x, y, z);
+            return this;
+        }
+
+        @Override
+        public void next()
+        {
+            this.delegate.next();
+            this.quadIndex++;
+
+            if (this.quadIndex == 4)
+            {
+                this.addLight(this.quadLights[0]);
+                this.addLight(this.quadLights[1]);
+                this.addLight(this.quadLights[2]);
+
+                this.addLight(this.quadLights[0]);
+                this.addLight(this.quadLights[2]);
+                this.addLight(this.quadLights[3]);
+
+                this.quadIndex = 0;
+            }
+        }
+
+        @Override
+        public void fixedColor(int red, int green, int blue, int alpha)
+        {
+        }
+
+        @Override
+        public void unfixColor()
+        {
+        }
+
+        private void addLight(int l)
+        {
+            if (this.lightSize >= this.lightData.length)
+            {
+                int[] n = new int[this.lightData.length * 2];
+                System.arraycopy(this.lightData, 0, n, 0, this.lightSize);
+                this.lightData = n;
+            }
+
+            this.lightData[this.lightSize++] = l;
         }
     }
 }
