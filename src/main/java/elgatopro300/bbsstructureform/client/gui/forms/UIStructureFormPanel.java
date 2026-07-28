@@ -2,7 +2,6 @@ package elgatopro300.bbsstructureform.client.gui.forms;
 
 import elgatopro300.bbsstructureform.form.StructureForm;
 
-import mchorse.bbs_mod.BBSMod;
 import mchorse.bbs_mod.l10n.L10n;
 import mchorse.bbs_mod.l10n.keys.IKey;
 import mchorse.bbs_mod.resources.Link;
@@ -36,9 +35,6 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
     public UIColor color;
     public UIToggle toggleLight;
     public UITrackpad lightIntensity;
-    public UITrackpad scaleX;
-    public UITrackpad scaleY;
-    public UITrackpad scaleZ;
     public UIToggle toggleFluid;
 
     public UIStructureFormPanel(UIForm editor)
@@ -50,18 +46,11 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.color = new UIColor((c) -> this.form.color.set(Color.rgba(c))).withAlpha();
         this.pickBiome = new UIButton(L10n.lang("bbs.structureform.ui.pick_biome"), (b) -> this.pickBiome());
 
-        this.toggleLight = new UIToggle(IKey.raw("Emit Light"), false, (t) -> this.form.emitLight.set(t.getValue()));
+        this.toggleLight = new UIToggle(L10n.lang("bbs.structureform.ui.emit_light"), false, (t) -> this.form.emitLight.set(t.getValue()));
         this.lightIntensity = new UITrackpad((v) -> this.form.lightIntensity.set(v.intValue()))
             .integer()
             .limit(1D, 15D);
-        this.toggleFluid = new UIToggle(IKey.raw("Render Fluid"), false, (t) -> this.form.renderFluid.set(t.getValue()));
-
-        this.scaleX = new UITrackpad((v) -> this.form.scaleX.set(v.floatValue())).limit(0.01D, 100D);
-        this.scaleX.tooltip(IKey.raw("Scale X"));
-        this.scaleY = new UITrackpad((v) -> this.form.scaleY.set(v.floatValue())).limit(0.01D, 100D);
-        this.scaleY.tooltip(IKey.raw("Scale Y"));
-        this.scaleZ = new UITrackpad((v) -> this.form.scaleZ.set(v.floatValue())).limit(0.01D, 100D);
-        this.scaleZ.tooltip(IKey.raw("Scale Z"));
+        this.toggleFluid = new UIToggle(L10n.lang("bbs.structureform.ui.render_fluid"), false, (t) -> this.form.renderFluid.set(t.getValue()));
 
         this.options.add(
             UI.label(UIKeys.FORMS_EDITORS_GENERAL),
@@ -71,9 +60,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.options.add(this.pickBiome);
         this.options.add(this.toggleLight);
         this.options.add(this.toggleFluid);
-        this.options.add(UI.label(IKey.raw("Light Intensity")).marginTop(6), this.lightIntensity);
-        this.options.add(UI.label(IKey.raw("Structure Scale")).marginTop(10));
-        this.options.add(UI.row(this.scaleX, this.scaleY, this.scaleZ));
+        this.options.add(UI.label(L10n.lang("bbs.structureform.ui.light_intensity")).marginTop(6), this.lightIntensity);
     }
 
     private void pickStructure()
@@ -104,7 +91,7 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
 
     private void pickBiome()
     {
-        UIListOverlayPanel overlay = new UIListOverlayPanel(IKey.raw("Pick Biome"), (value) ->
+        UIListOverlayPanel overlay = new UIListOverlayPanel(L10n.lang("bbs.structureform.ui.pick_biome"), (value) ->
         {
             String id = value == null ? "" : value;
             this.form.biomeId.set(id);
@@ -146,9 +133,6 @@ public class UIStructureFormPanel extends UIFormPanel<StructureForm>
         this.color.setColor(form.color.get().getARGBColor());
         this.toggleLight.setValue(form.emitLight.get());
         this.lightIntensity.setValue((double) form.lightIntensity.get());
-        this.scaleX.setValue((double) form.scaleX.get());
-        this.scaleY.setValue((double) form.scaleY.get());
-        this.scaleZ.setValue((double) form.scaleZ.get());
         this.toggleFluid.setValue(form.renderFluid.get());
     }
 }

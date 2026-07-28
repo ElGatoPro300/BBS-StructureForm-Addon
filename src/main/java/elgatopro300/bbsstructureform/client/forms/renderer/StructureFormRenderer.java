@@ -504,14 +504,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 {
                     try
                     {
-                        VertexConsumerProvider beConsumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
+                        CustomVertexConsumerProvider beConsumers = FormUtilsClient.getProvider();
 
                         this.renderBlockEntitiesOnly(context, context.stack, beConsumers, light, context.overlay);
-
-                        if (beConsumers instanceof VertexConsumerProvider.Immediate immediate)
-                        {
-                            immediate.draw();
-                        }
+                        beConsumers.draw();
                     }
                     catch (Throwable ignored)
                     {}
@@ -521,7 +517,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 {
                     try
                     {
-                        VertexConsumerProvider.Immediate tintConsumers = VertexConsumerProvider.immediate(Tessellator.getInstance().getBuffer());
+                        CustomVertexConsumerProvider tintConsumers = FormUtilsClient.getProvider();
 
                         this.renderBiomeTintedBlocksVanilla(context, context.stack, tintConsumers, light, context.overlay);
                         tintConsumers.draw();
@@ -534,7 +530,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 {
                     try
                     {
-                        VertexConsumerProvider.Immediate animConsumers = VertexConsumerProvider.immediate(Tessellator.getInstance().getBuffer());
+                        CustomVertexConsumerProvider animConsumers = FormUtilsClient.getProvider();
 
                         this.renderAnimatedBlocksVanilla(context, context.stack, animConsumers, light, context.overlay);
                         animConsumers.draw();
@@ -736,7 +732,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 vc = recolor.apply(vc);
             }
 
-            if (!entry.state.getFluidState().isEmpty())
+            if (this.form.renderFluid.get() && !entry.state.getFluidState().isEmpty())
             {
                 boolean shaders = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
                 RenderLayer fluidLayer = shaders
@@ -881,7 +877,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 vc = recolor.apply(vc);
             }
 
-            if (!entry.state.getFluidState().isEmpty())
+            if (this.form.renderFluid.get() && !entry.state.getFluidState().isEmpty())
             {
                 boolean shaders = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
                 RenderLayer fluidLayer = shaders
@@ -1698,15 +1694,15 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         private final Matrix4f positionMatrix;
         private final Matrix3f normalMatrix;
         private final BlockPos offset;
-        private final boolean injectOverlay;
+        private final boolean fixOverlay;
 
-        public TransformingVertexConsumer(VertexConsumer parent, MatrixStack.Entry entry, BlockPos offset, boolean injectOverlay)
+        public TransformingVertexConsumer(VertexConsumer parent, MatrixStack.Entry entry, BlockPos offset, boolean fixOverlay)
         {
             this.parent = parent;
             this.positionMatrix = new Matrix4f(entry.getPositionMatrix());
             this.normalMatrix = new Matrix3f(entry.getNormalMatrix());
             this.offset = offset;
-            this.injectOverlay = injectOverlay;
+            this.fixOverlay = fixOverlay;
         }
 
         @Override
@@ -1741,17 +1737,13 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         @Override
         public VertexConsumer overlay(int u, int v)
         {
-            this.parent.overlay(u, v);
+            this.parent.overlay(this.fixOverlay ? 0 : u, this.fixOverlay ? 10 : v);
             return this;
         }
 
         @Override
         public VertexConsumer light(int u, int v)
         {
-            if (this.injectOverlay)
-            {
-                this.parent.overlay(0, 10);
-            }
             this.parent.light(u, v);
             return this;
         }
@@ -1762,6 +1754,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             float tx = this.normalMatrix.m00() * x + this.normalMatrix.m10() * y + this.normalMatrix.m20() * z;
             float ty = this.normalMatrix.m01() * x + this.normalMatrix.m11() * y + this.normalMatrix.m21() * z;
             float tz = this.normalMatrix.m02() * x + this.normalMatrix.m12() * y + this.normalMatrix.m22() * z;
+
+            if (this.fixOverlay)
+            {
+                this.parent.overlay(0, 10);
+            }
 
             this.parent.normal(tx, ty, tz);
             return this;
