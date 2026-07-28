@@ -29,6 +29,7 @@ import mchorse.bbs_mod.utils.joml.Vectors;
 import net.minecraft.block.AttachedStemBlock;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockEntityProvider;
+import net.minecraft.block.BlockRenderType;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
 import net.minecraft.block.GrassBlock;
@@ -68,6 +69,7 @@ import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.LightType;
 
+import org.joml.Matrix3f;
 import org.joml.Matrix4f;
 
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -126,7 +128,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     private boolean hasBiomeTintedLayer = false;
     private boolean hasBlockEntityLayer = false;
     private VirtualBlockRenderView.Entry[] entriesCache = null;
-    private VirtualBlockRenderView cachedView = null;
+    private StructureVirtualBlockRenderView cachedView = null;
 
     public static void clearAllCachedVaos()
     {
@@ -188,7 +190,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         float finalScale;
 
         boolean optimize = true;
-        boolean lightsEnabled;
 
         if (this.boundsMin != null && this.boundsMax != null)
         {
@@ -213,11 +214,14 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         matrices.peek().getNormalMatrix().getScale(Vectors.EMPTY_3F);
         matrices.peek().getNormalMatrix().scale(1F / Vectors.EMPTY_3F.x, -1F / Vectors.EMPTY_3F.y, 1F / Vectors.EMPTY_3F.z);
 
-        /* If structure light is enabled via form properties, force BufferBuilder path so dynamic light calculation applies. */
-        lightsEnabled = this.form.emitLight.get();
-        if (lightsEnabled)
+        boolean currentEmitLightUi = this.form.emitLight.get();
+        int currentLightIntensityUi = this.form.lightIntensity.get();
+
+        if (currentEmitLightUi != this.lastEmitLight || currentLightIntensityUi != this.lastLightIntensity)
         {
-            optimize = false;
+            this.vaoDirty = true;
+            this.lastEmitLight = currentEmitLightUi;
+            this.lastLightIntensity = currentLightIntensityUi;
         }
 
         if (!optimize)
@@ -362,26 +366,22 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     {
         this.ensureLoaded();
 
-        if (this.blocks.isEmpty())
-        {
-            return;
-        }
-
         context.stack.push();
-
-        float sx = this.form.scaleX.get();
-        float sy = this.form.scaleY.get();
-        float sz = this.form.scaleZ.get();
-
-        if (Math.abs(sx - 1F) > 0.001F || Math.abs(sy - 1F) > 0.001F || Math.abs(sz - 1F) > 0.001F)
-        {
-            context.stack.scale(sx, sy, sz);
-        }
 
         boolean optimize = true;
         boolean picking = context.isPicking();
 
         IModelVAO vao = this.getStructureVao();
+
+        boolean currentEmitLight = this.form.emitLight.get();
+        int currentLightIntensity = this.form.lightIntensity.get();
+
+        if (currentEmitLight != this.lastEmitLight || currentLightIntensity != this.lastLightIntensity)
+        {
+            this.vaoDirty = true;
+            this.lastEmitLight = currentEmitLight;
+            this.lastLightIntensity = currentLightIntensity;
+        }
 
         if (optimize && (vao == null || this.vaoDirty))
         {
@@ -627,10 +627,15 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             .setLightsEnabled(lightsEnabled)
             .setLightIntensity(lightIntensity);
 
-        if (this.cachedView instanceof StructureVirtualBlockRenderView structView)
+        if (lightsEnabled)
         {
-            structView.setVirtualMode(lightsEnabled, lightIntensity);
-            structView.setIgnoreWorldBlockLight(lightsEnabled);
+            this.cachedView.setVirtualMode(true, lightIntensity)
+                .setIgnoreWorldBlockLight(false);
+        }
+        else
+        {
+            this.cachedView.setVirtualMode(false, 0)
+                .setIgnoreWorldBlockLight(true);
         }
 
         /* World anchor: for items/UI use player position (more stable) */
@@ -662,10 +667,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         int baseDz = (int) Math.floor(-info.pivotZ);
 
         info.view.setWorldAnchor(info.anchor, baseDx, baseDy, baseDz)
-            /* In UI/thumbnail/inventory item, force max sky light to avoid darkening */
-            .setForceMaxSkyLight(context.ui
+            /* In UI/thumbnail/inventory item, force max sky light to avoid darkening.
+               EXCEPT during VAO capture, where we want real virtual lighting baked. */
+            .setForceMaxSkyLight(!this.capturingVAO && (context.ui
                 || context.type == FormRenderType.PREVIEW
-                || context.type == FormRenderType.ITEM_INVENTORY || forceMaxSkyLight);
+                || context.type == FormRenderType.ITEM_INVENTORY || forceMaxSkyLight));
 
         return info;
     }
@@ -730,7 +736,24 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 vc = recolor.apply(vc);
             }
 
-            MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, Random.create());
+            if (!entry.state.getFluidState().isEmpty())
+            {
+                boolean shaders = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
+                RenderLayer fluidLayer = shaders
+                    ? RenderLayers.getEntityBlockLayer(entry.state, false)
+                    : RenderLayers.getFluidLayer(entry.state.getFluidState());
+                VertexConsumer fluidVc = consumers.getBuffer(fluidLayer);
+                if (recolor != null)
+                {
+                    fluidVc = recolor.apply(fluidVc);
+                }
+                fluidVc = new TransformingVertexConsumer(fluidVc, stack.peek(), entry.pos, shaders);
+                MinecraftClient.getInstance().getBlockRenderManager().renderFluid(entry.pos, info.view, fluidVc, entry.state, entry.state.getFluidState());
+            }
+            if (entry.state.getRenderType() != BlockRenderType.INVISIBLE)
+            {
+                MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, Random.create());
+            }
 
             /* Render blocks with entity (chests, beds, signs, skulls, etc.) */
             block = entry.state.getBlock();
@@ -746,6 +769,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                 if (be != null)
                 {
+                    if (entry.nbt != null)
+                    {
+                        be.readNbt(entry.nbt);
+                    }
                     /* Associate real world so renderer can query light and effects */
                     if (MinecraftClient.getInstance().world != null)
                     {
@@ -854,7 +881,24 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 vc = recolor.apply(vc);
             }
 
-            MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, Random.create());
+            if (!entry.state.getFluidState().isEmpty())
+            {
+                boolean shaders = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
+                RenderLayer fluidLayer = shaders
+                    ? RenderLayers.getEntityBlockLayer(entry.state, false)
+                    : RenderLayers.getFluidLayer(entry.state.getFluidState());
+                VertexConsumer fluidVc = consumers.getBuffer(fluidLayer);
+                if (recolor != null)
+                {
+                    fluidVc = recolor.apply(fluidVc);
+                }
+                fluidVc = new TransformingVertexConsumer(fluidVc, stack.peek(), entry.pos, shaders);
+                MinecraftClient.getInstance().getBlockRenderManager().renderFluid(entry.pos, info.view, fluidVc, entry.state, entry.state.getFluidState());
+            }
+            if (entry.state.getRenderType() != BlockRenderType.INVISIBLE)
+            {
+                MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, Random.create());
+            }
             stack.pop();
         }
 
@@ -909,20 +953,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             tint = this.form.color.get();
             recolor = BBSRendering.getColorConsumer(tint);
 
-            if (this.form.renderFluid.get() && !entry.state.getFluidState().isEmpty())
+            if (recolor != null)
             {
-                VertexConsumer fluidVc = consumers.getBuffer(RenderLayers.getFluidLayer(entry.state.getFluidState()));
-                if (recolor != null)
-                {
-                    fluidVc = recolor.apply(fluidVc);
-                }
-                fluidVc = new TransformingVertexConsumer(fluidVc, stack.peek(), entry.pos, true);
-                MinecraftClient.getInstance().getBlockRenderManager().renderFluid(entry.pos, info.view, fluidVc, entry.state, entry.state.getFluidState());
+                vc = recolor.apply(vc);
             }
-            if (entry.state.getRenderType() != net.minecraft.block.BlockRenderType.INVISIBLE)
-            {
-                MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, Random.create());
-            }
+
+            MinecraftClient.getInstance().getBlockRenderManager().renderBlock(entry.state, entry.pos, info.view, stack, vc, true, Random.create());
             stack.pop();
         }
 
@@ -1022,13 +1058,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             {
                 if (entry.nbt != null)
                 {
-                    try
-                    {
-                        be.readNbt(entry.nbt);
-                    }
-                    catch (Throwable ignored) {}
+                    be.readNbt(entry.nbt);
                 }
-
                 BlockEntityRenderer<?> renderer;
                 int skyLight;
                 int blockLight;
@@ -1096,23 +1127,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
     {
         String file = this.form.structureFile.get();
 
-        String linkString = file;
-        if (linkString != null && !linkString.isEmpty())
-        {
-            /* Si no hay namespace, asumir que es interno del addon */
-            if (!linkString.contains(":"))
-            {
-                linkString = "bbs-structureform:" + linkString;
-            }
-
-            /* Para estructuras internas, añadir extensión .nbt si falta */
-            if (linkString.startsWith("bbs-structureform:") && !linkString.endsWith(".nbt"))
-            {
-                linkString = linkString + ".nbt";
-            }
-        }
-
-        if (linkString == null || linkString.isEmpty())
+        if (file == null || file.isEmpty())
         {
             /* Nothing selected; clear to avoid ghost render. */
             this.blocks.clear();
@@ -1137,12 +1152,12 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             return;
         }
 
-        if (file != null && file.equals(this.lastFile) && !this.blocks.isEmpty())
+        if (file.equals(this.lastFile) && !this.blocks.isEmpty())
         {
             return;
         }
 
-        File nbtFile = BBSMod.getProvider().getFile(Link.create(linkString));
+        File nbtFile = BBSMod.getProvider().getFile(Link.create(file));
 
         this.blocks.clear();
         this.animatedBlocks.clear();
@@ -1179,7 +1194,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         /* If no File (internal assets), read via provider InputStream. */
-        try (InputStream is = BBSMod.getProvider().getAsset(Link.create(linkString)))
+        try (InputStream is = BBSMod.getProvider().getAsset(Link.create(file)))
         {
             try
             {
@@ -1371,6 +1386,110 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
     }
 
+    private static class LightmapStructureVAOCollector implements VertexConsumer
+    {
+        private final StructureVAOCollector delegate;
+        private int[] lightData = new int[8192];
+        private int lightSize = 0;
+        private final int[] quadLights = new int[4];
+        private int quadIndex = 0;
+
+        public LightmapStructureVAOCollector(StructureVAOCollector delegate)
+        {
+            this.delegate = delegate;
+        }
+
+        public int[] getLightmapData()
+        {
+            return Arrays.copyOf(this.lightData, this.lightSize);
+        }
+
+        @Override
+        public VertexConsumer vertex(double x, double y, double z)
+        {
+            this.delegate.vertex(x, y, z);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer color(int red, int green, int blue, int alpha)
+        {
+            this.delegate.color(red, green, blue, alpha);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer texture(float u, float v)
+        {
+            this.delegate.texture(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer overlay(int u, int v)
+        {
+            this.delegate.overlay(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer light(int u, int v)
+        {
+            this.quadLights[this.quadIndex] = (u & 0xFFFF) | ((v & 0xFFFF) << 16);
+            this.delegate.light(u, v);
+            return this;
+        }
+
+        @Override
+        public VertexConsumer normal(float x, float y, float z)
+        {
+            this.delegate.normal(x, y, z);
+            return this;
+        }
+
+        @Override
+        public void next()
+        {
+            this.delegate.next();
+            this.quadIndex++;
+
+            if (this.quadIndex == 4)
+            {
+                this.addLight(this.quadLights[0]);
+                this.addLight(this.quadLights[1]);
+                this.addLight(this.quadLights[2]);
+
+                this.addLight(this.quadLights[0]);
+                this.addLight(this.quadLights[2]);
+                this.addLight(this.quadLights[3]);
+
+                this.quadIndex = 0;
+            }
+        }
+
+        @Override
+        public void fixedColor(int red, int green, int blue, int alpha)
+        {
+        }
+
+        @Override
+        public void unfixColor()
+        {
+        }
+
+        private void addLight(int l)
+        {
+            if (this.lightSize >= this.lightData.length)
+            {
+                int[] n = new int[this.lightData.length * 2];
+                System.arraycopy(this.lightData, 0, n, 0, this.lightSize);
+                this.lightData = n;
+            }
+
+            this.lightData[this.lightSize++] = l;
+        }
+    }
+
     private void parseStructure(NbtCompound root)
     {
         /* Size */
@@ -1426,8 +1545,8 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                         continue;
                     }
 
-                    NbtCompound nbtComp = be.contains("nbt", NbtElement.COMPOUND_TYPE) ? be.getCompound("nbt") : null;
-                    BlockEntry blockEntry = new BlockEntry(state, pos, nbtComp);
+                    NbtCompound nbt = be.contains("nbt", NbtElement.COMPOUND_TYPE) ? be.getCompound("nbt") : null;
+                    BlockEntry blockEntry = new BlockEntry(state, pos, nbt);
 
                     this.blocks.add(blockEntry);
 
@@ -1571,28 +1690,23 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
             this.pos = pos;
             this.nbt = nbt;
         }
-
-        BlockEntry(BlockState state, BlockPos pos)
-        {
-            this(state, pos, null);
-        }
     }
 
     private static class TransformingVertexConsumer implements VertexConsumer
     {
         private final VertexConsumer parent;
         private final Matrix4f positionMatrix;
-        private final org.joml.Matrix3f normalMatrix;
+        private final Matrix3f normalMatrix;
         private final BlockPos offset;
-        private final boolean fixOverlay;
+        private final boolean injectOverlay;
 
-        public TransformingVertexConsumer(VertexConsumer parent, MatrixStack.Entry entry, BlockPos offset, boolean fixOverlay)
+        public TransformingVertexConsumer(VertexConsumer parent, MatrixStack.Entry entry, BlockPos offset, boolean injectOverlay)
         {
             this.parent = parent;
             this.positionMatrix = new Matrix4f(entry.getPositionMatrix());
-            this.normalMatrix = new org.joml.Matrix3f(entry.getNormalMatrix());
+            this.normalMatrix = new Matrix3f(entry.getNormalMatrix());
             this.offset = offset;
-            this.fixOverlay = fixOverlay;
+            this.injectOverlay = injectOverlay;
         }
 
         @Override
@@ -1627,13 +1741,17 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         @Override
         public VertexConsumer overlay(int u, int v)
         {
-            this.parent.overlay(this.fixOverlay ? 0 : u, this.fixOverlay ? 10 : v);
+            this.parent.overlay(u, v);
             return this;
         }
 
         @Override
         public VertexConsumer light(int u, int v)
         {
+            if (this.injectOverlay)
+            {
+                this.parent.overlay(0, 10);
+            }
             this.parent.light(u, v);
             return this;
         }
@@ -1665,110 +1783,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         public void unfixColor()
         {
             this.parent.unfixColor();
-        }
-    }
-
-    private static class LightmapStructureVAOCollector implements VertexConsumer
-    {
-        private final StructureVAOCollector delegate;
-        private int[] lightData = new int[8192];
-        private int lightSize = 0;
-        private final int[] quadLights = new int[4];
-        private int quadIndex = 0;
-
-        public LightmapStructureVAOCollector(StructureVAOCollector delegate)
-        {
-            this.delegate = delegate;
-        }
-
-        public int[] getLightmapData()
-        {
-            return Arrays.copyOf(this.lightData, this.lightSize);
-        }
-
-        @Override
-        public VertexConsumer vertex(double x, double y, double z)
-        {
-            this.delegate.vertex(x, y, z);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer color(int red, int green, int blue, int alpha)
-        {
-            this.delegate.color(red, green, blue, alpha);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer texture(float u, float v)
-        {
-            this.delegate.texture(u, v);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer overlay(int u, int v)
-        {
-            this.delegate.overlay(u, v);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer light(int u, int v)
-        {
-            this.quadLights[this.quadIndex] = (u & 0xFFFF) | ((v & 0xFFFF) << 16);
-            this.delegate.light(u, v);
-            return this;
-        }
-
-        @Override
-        public VertexConsumer normal(float x, float y, float z)
-        {
-            this.delegate.normal(x, y, z);
-            return this;
-        }
-
-        @Override
-        public void next()
-        {
-            this.delegate.next();
-            this.quadIndex++;
-
-            if (this.quadIndex == 4)
-            {
-                this.addLight(this.quadLights[0]);
-                this.addLight(this.quadLights[1]);
-                this.addLight(this.quadLights[2]);
-
-                this.addLight(this.quadLights[0]);
-                this.addLight(this.quadLights[2]);
-                this.addLight(this.quadLights[3]);
-
-                this.quadIndex = 0;
-            }
-        }
-
-        @Override
-        public void fixedColor(int red, int green, int blue, int alpha)
-        {
-        }
-
-        @Override
-        public void unfixColor()
-        {
-        }
-
-        private void addLight(int l)
-        {
-            if (this.lightSize >= this.lightData.length)
-            {
-                int[] n = new int[this.lightData.length * 2];
-                System.arraycopy(this.lightData, 0, n, 0, this.lightSize);
-                this.lightData = n;
-            }
-
-            this.lightData[this.lightSize++] = l;
         }
     }
 }

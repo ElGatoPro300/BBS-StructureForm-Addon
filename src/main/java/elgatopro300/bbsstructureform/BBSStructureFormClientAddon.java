@@ -1,11 +1,8 @@
 package elgatopro300.bbsstructureform;
 
-import elgatopro300.bbsaddonengine.BBSAddonEngineClient;
-import elgatopro300.bbsaddonengine.mixin.UIKeyframeFactoryAccessor;
-import elgatopro300.bbsaddonengine.utils.HelperUIReplaysEditor;
 import elgatopro300.bbsstructureform.client.forms.renderer.StructureFormRenderer;
-import elgatopro300.bbsstructureform.client.gui.forms.UIStructureForm;
 import elgatopro300.bbsstructureform.client.gui.UIStructureStringKeyframeFactory;
+import elgatopro300.bbsstructureform.client.gui.forms.UIStructureForm;
 import elgatopro300.bbsstructureform.form.StructureForm;
 import elgatopro300.bbsstructureform.importers.StructureImporter;
 
@@ -18,8 +15,8 @@ import mchorse.bbs_mod.events.register.RegisterFormsRenderersEvent;
 import mchorse.bbs_mod.events.register.RegisterImportersEvent;
 import mchorse.bbs_mod.events.register.RegisterL10nEvent;
 import mchorse.bbs_mod.forms.FormCategories;
-import mchorse.bbs_mod.forms.categories.FormCategory;
 import mchorse.bbs_mod.forms.FormUtilsClient;
+import mchorse.bbs_mod.forms.categories.FormCategory;
 import mchorse.bbs_mod.importers.Importers;
 import mchorse.bbs_mod.resources.Link;
 import mchorse.bbs_mod.ui.forms.editors.UIFormEditor;
@@ -34,6 +31,10 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 
 import java.util.Collections;
 import java.util.List;
+
+import elgatopro300.bbsaddonengine.BBSAddonEngineClient;
+import elgatopro300.bbsaddonengine.mixin.UIKeyframeFactoryAccessor;
+import elgatopro300.bbsaddonengine.utils.HelperUIReplaysEditor;
 
 public class BBSStructureFormClientAddon extends BBSClientAddon implements ClientModInitializer
 {
