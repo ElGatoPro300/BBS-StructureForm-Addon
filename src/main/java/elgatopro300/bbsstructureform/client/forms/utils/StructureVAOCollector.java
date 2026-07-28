@@ -43,11 +43,11 @@ public class StructureVAOCollector implements VertexConsumer
     }
 
     @Override
-    public VertexConsumer vertex(double x, double y, double z)
+    public VertexConsumer vertex(float x, float y, float z)
     {
-        this.vx = (float) x;
-        this.vy = (float) y;
-        this.vz = (float) z;
+        this.vx = x;
+        this.vy = y;
+        this.vz = z;
         return this;
     }
 
@@ -86,12 +86,7 @@ public class StructureVAOCollector implements VertexConsumer
         this.vnx = x;
         this.vny = y;
         this.vnz = z;
-        return this;
-    }
 
-    @Override
-    public void next()
-    {
         Vtx v = this.quad[this.quadIndex];
         v.x = this.vx; v.y = this.vy; v.z = this.vz;
         v.nx = this.vnx; v.ny = this.vny; v.nz = this.vnz;
@@ -106,6 +101,8 @@ public class StructureVAOCollector implements VertexConsumer
             this.emitTriangle(this.quad[0], this.quad[2], this.quad[3]);
             this.quadIndex = 0;
         }
+
+        return this;
     }
 
     private void emitTriangle(Vtx a, Vtx b, Vtx c)
@@ -180,17 +177,7 @@ public class StructureVAOCollector implements VertexConsumer
         return this.tangentTmp;
     }
 
-    @Override
-    public void fixedColor(int red, int green, int blue, int alpha)
-    {
-        /* no-op */
-    }
 
-    @Override
-    public void unfixColor()
-    {
-        /* no-op */
-    }
 
     public ModelVAOData toData()
     {

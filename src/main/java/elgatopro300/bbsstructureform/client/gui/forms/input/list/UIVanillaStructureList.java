@@ -13,7 +13,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtTagSizeTracker;
+import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.resource.Resource;
 import net.minecraft.resource.ResourceManager;
 import net.minecraft.util.Identifier;
@@ -76,7 +76,7 @@ public class UIVanillaStructureList extends UIStringList
 
     private void scanInternalResources(ResourceManager manager)
     {
-        Map<Identifier, List<Resource>> resources = manager.findAllResources("structures", (id) -> 
+        Map<Identifier, List<Resource>> resources = manager.findAllResources("structure", (id) -> 
             id.getNamespace().equals("minecraft") && id.getPath().endsWith(".nbt"));
 
         for (Map.Entry<Identifier, List<Resource>> entry : resources.entrySet())
@@ -85,9 +85,9 @@ public class UIVanillaStructureList extends UIStringList
             String path = id.getPath();
 
             String relativePath = path;
-            if (relativePath.startsWith("structures/"))
+            if (relativePath.startsWith("structure/"))
             {
-                relativePath = relativePath.substring("structures/".length());
+                relativePath = relativePath.substring("structure/".length());
             }
 
             String fullPath = "minecraft:" + relativePath;
@@ -105,7 +105,7 @@ public class UIVanillaStructureList extends UIStringList
                     try (InputStream is = entry.getValue().get(0).getInputStream();
                          DataInputStream dis = new DataInputStream(is))
                     {
-                        NbtCompound nbt = NbtIo.readCompressed(dis, NbtTagSizeTracker.ofUnlimitedBytes());
+                        NbtCompound nbt = NbtIo.readCompressed(dis, NbtSizeTracker.ofUnlimitedBytes());
 
                         if (nbt.contains("size"))
                         {

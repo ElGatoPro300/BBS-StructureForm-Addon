@@ -60,7 +60,7 @@ import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtIo;
 import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtTagSizeTracker;
+import net.minecraft.nbt.NbtSizeTracker;
 import net.minecraft.registry.Registries;
 import net.minecraft.screen.PlayerScreenHandler;
 import net.minecraft.state.property.Property;
@@ -228,9 +228,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             /* BufferBuilder mode: better lighting, worse performance */
             boolean shaders = this.isShadersActive();
-            VertexConsumerProvider consumers = shaders
-                ? MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers()
-                : VertexConsumerProvider.immediate(Tessellator.getInstance().getBuffer());
+            VertexConsumerProvider consumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
 
             try
             {
@@ -309,10 +307,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 {
                     try
                     {
-                        boolean shadersEnabled = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
-                        VertexConsumerProvider consumersTint = shadersEnabled
-                            ? MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers()
-                            : VertexConsumerProvider.immediate(Tessellator.getInstance().getBuffer());
+                        VertexConsumerProvider consumersTint = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
                         FormRenderingContext tintContext = new FormRenderingContext()
                             .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
 
@@ -332,9 +327,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                     try
                     {
                         boolean shadersEnabled = BBSRendering.isIrisShadersEnabled() && BBSRendering.isRenderingWorld();
-                        VertexConsumerProvider consumersAnim = shadersEnabled
-                            ? MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers()
-                            : VertexConsumerProvider.immediate(Tessellator.getInstance().getBuffer());
+                        VertexConsumerProvider consumersAnim = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
                         FormRenderingContext animContext = new FormRenderingContext()
                             .set(FormRenderType.PREVIEW, null, matrices, LightmapTextureManager.MAX_BLOCK_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0F);
 
@@ -428,9 +421,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
                 /* BufferBuilder mode: use vanilla/culling pipeline with better lighting */
                 int light = context.light;
                 boolean shaders = this.isShadersActive();
-                VertexConsumerProvider consumers = shaders
-                    ? MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers()
-                    : VertexConsumerProvider.immediate(Tessellator.getInstance().getBuffer());
+                VertexConsumerProvider consumers = MinecraftClient.getInstance().getBufferBuilders().getEntityVertexConsumers();
                 GameRenderer gameRenderer = MinecraftClient.getInstance().gameRenderer;
 
                 /* Align state handling with VAO path to avoid state leaks affecting the first model rendered after. */
@@ -765,10 +756,10 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                 if (be != null)
                 {
-                    if (entry.nbt != null)
-                    {
-                        be.readNbt(entry.nbt);
-                    }
+                        if (MinecraftClient.getInstance().world != null)
+                        {
+                            be.read(entry.nbt, MinecraftClient.getInstance().world.getRegistryManager());
+                        }
                     /* Associate real world so renderer can query light and effects */
                     if (MinecraftClient.getInstance().world != null)
                     {
@@ -1052,9 +1043,9 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             if (be != null)
             {
-                if (entry.nbt != null)
+                if (entry.nbt != null && MinecraftClient.getInstance().world != null)
                 {
-                    be.readNbt(entry.nbt);
+                    be.read(entry.nbt, MinecraftClient.getInstance().world.getRegistryManager());
                 }
                 BlockEntityRenderer<?> renderer;
                 int skyLight;
@@ -1179,7 +1170,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             try
             {
-                NbtCompound root = NbtIo.readCompressed(nbtFile.toPath(), NbtTagSizeTracker.ofUnlimitedBytes());
+                NbtCompound root = NbtIo.readCompressed(nbtFile.toPath(), NbtSizeTracker.ofUnlimitedBytes());
 
                 this.parseStructure(root);
 
@@ -1194,7 +1185,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         {
             try
             {
-                NbtCompound root = NbtIo.readCompressed(is, NbtTagSizeTracker.ofUnlimitedBytes());
+                NbtCompound root = NbtIo.readCompressed(is, NbtSizeTracker.ofUnlimitedBytes());
 
                 this.parseStructure(root);
             }
@@ -1401,7 +1392,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         @Override
-        public VertexConsumer vertex(double x, double y, double z)
+        public VertexConsumer vertex(float x, float y, float z)
         {
             this.delegate.vertex(x, y, z);
             return this;
@@ -1440,13 +1431,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         public VertexConsumer normal(float x, float y, float z)
         {
             this.delegate.normal(x, y, z);
-            return this;
-        }
-
-        @Override
-        public void next()
-        {
-            this.delegate.next();
             this.quadIndex++;
 
             if (this.quadIndex == 4)
@@ -1461,17 +1445,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
                 this.quadIndex = 0;
             }
+
+            return this;
         }
 
-        @Override
-        public void fixedColor(int red, int green, int blue, int alpha)
-        {
-        }
 
-        @Override
-        public void unfixColor()
-        {
-        }
 
         private void addLight(int l)
         {
@@ -1619,7 +1597,7 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
         try
         {
-            Identifier id = new Identifier(name);
+            Identifier id = Identifier.of(name);
 
             block = Registries.BLOCK.get(id);
 
@@ -1706,11 +1684,11 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
         }
 
         @Override
-        public VertexConsumer vertex(double x, double y, double z)
+        public VertexConsumer vertex(float x, float y, float z)
         {
-            float nx = (float) x - this.offset.getX();
-            float ny = (float) y - this.offset.getY();
-            float nz = (float) z - this.offset.getZ();
+            float nx = x - this.offset.getX();
+            float ny = y - this.offset.getY();
+            float nz = z - this.offset.getZ();
 
             float tx = this.positionMatrix.m00() * nx + this.positionMatrix.m10() * ny + this.positionMatrix.m20() * nz + this.positionMatrix.m30();
             float ty = this.positionMatrix.m01() * nx + this.positionMatrix.m11() * ny + this.positionMatrix.m21() * nz + this.positionMatrix.m31();
@@ -1762,24 +1740,6 @@ public class StructureFormRenderer extends FormRenderer<StructureForm>
 
             this.parent.normal(tx, ty, tz);
             return this;
-        }
-
-        @Override
-        public void next()
-        {
-            this.parent.next();
-        }
-
-        @Override
-        public void fixedColor(int red, int green, int blue, int alpha)
-        {
-            this.parent.fixedColor(red, green, blue, alpha);
-        }
-
-        @Override
-        public void unfixColor()
-        {
-            this.parent.unfixColor();
         }
     }
 }

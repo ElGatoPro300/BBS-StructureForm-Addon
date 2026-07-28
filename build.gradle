@@ -55,7 +55,7 @@ dependencies {
 	// modImplementation "net.fabricmc.fabric-api:fabric-api-deprecated:${project.fabric_version}"
 	modImplementation "maven.modrinth:sodium:mc1.21.1-0.6.13-fabric"
 	modImplementation "maven.modrinth:iris:1.8.8+1.21.1-fabric"
-	modImplementation "maven.modrinth:bbs-mod:1.7.7-1.21.1"
+	modImplementation files('libs/bbs-1.7.7-1.21.1.jar')
 
 	modImplementation "org.anarres:jcpp:1.4.14"
 	modImplementation "io.github.douira:glsl-transformer:2.0.0-pre13"
