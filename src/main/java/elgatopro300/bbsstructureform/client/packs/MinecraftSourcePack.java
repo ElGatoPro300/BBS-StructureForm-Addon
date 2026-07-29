@@ -76,23 +76,20 @@ public class MinecraftSourcePack implements ISourcePack
     @Override
     public boolean hasAsset(Link link)
     {
+        if (link == null || link.path == null) return false;
+
         try
         {
-            Identifier id = Identifier.of(link.source, link.path);
-            ResourceManager effectiveManager = this.getEffectiveManager(link);
-
-            if (effectiveManager.getResource(id).isPresent())
+            ResourceManager manager = this.getEffectiveManager(link);
+            if (this.checkResource(manager, link))
             {
                 return true;
             }
 
-            if (!link.path.startsWith("structure/") && link.path.endsWith(".nbt"))
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (mc.getResourceManager() != manager && this.checkResource(mc.getResourceManager(), link))
             {
-                Identifier structureId = Identifier.of(link.source, "structures/" + link.path);
-                if (effectiveManager.getResource(structureId).isPresent())
-                {
-                    return true;
-                }
+                return true;
             }
         }
         catch (Throwable ignored) {}
@@ -100,31 +97,76 @@ public class MinecraftSourcePack implements ISourcePack
         return false;
     }
 
+    private boolean checkResource(ResourceManager manager, Link link)
+    {
+        if (manager == null) return false;
+
+        String src = (link.source == null || link.source.isEmpty()) ? "minecraft" : link.source;
+        Identifier id = Identifier.of(src, link.path);
+        if (manager.getResource(id).isPresent()) return true;
+
+        if (!link.path.startsWith("structure/"))
+        {
+            if (manager.getResource(Identifier.of(src, "structure/" + link.path)).isPresent()) return true;
+        }
+        if (!link.path.startsWith("structures/"))
+        {
+            if (manager.getResource(Identifier.of(src, "structures/" + link.path)).isPresent()) return true;
+        }
+
+        return false;
+    }
+
     @Override
     public InputStream getAsset(Link link) throws IOException
     {
+        if (link == null || link.path == null) return null;
+
         try
         {
-            Identifier id = Identifier.of(link.source, link.path);
-            ResourceManager effectiveManager = this.getEffectiveManager(link);
+            ResourceManager manager = this.getEffectiveManager(link);
+            InputStream is = this.openResource(manager, link);
+            if (is != null) return is;
 
-            Optional<Resource> resource = effectiveManager.getResource(id);
-
-            if (resource.isEmpty() && !link.path.startsWith("structure/") && link.path.endsWith(".nbt"))
+            MinecraftClient mc = MinecraftClient.getInstance();
+            if (mc.getResourceManager() != manager)
             {
-                Identifier structureId = Identifier.of(link.source, "structure/" + link.path);
-                resource = effectiveManager.getResource(structureId);
-            }
-
-            if (resource.isPresent())
-            {
-                return resource.get().getInputStream();
+                is = this.openResource(mc.getResourceManager(), link);
+                if (is != null) return is;
             }
         }
         catch (Throwable e)
         {
             throw new IOException("Failed to load minecraft asset: " + link, e);
         }
+
+        return null;
+    }
+
+    private InputStream openResource(ResourceManager manager, Link link)
+    {
+        if (manager == null) return null;
+
+        try
+        {
+            String src = (link.source == null || link.source.isEmpty()) ? "minecraft" : link.source;
+            Identifier id = Identifier.of(src, link.path);
+            Optional<Resource> res = manager.getResource(id);
+            if (res.isPresent()) return res.get().getInputStream();
+
+            if (!link.path.startsWith("structure/"))
+            {
+                res = manager.getResource(Identifier.of(src, "structure/" + link.path));
+                if (res.isPresent()) return res.get().getInputStream();
+            }
+
+            if (!link.path.startsWith("structures/"))
+            {
+                res = manager.getResource(Identifier.of(src, "structures/" + link.path));
+                if (res.isPresent()) return res.get().getInputStream();
+            }
+        }
+        catch (Throwable ignored) {}
 
         return null;
     }
