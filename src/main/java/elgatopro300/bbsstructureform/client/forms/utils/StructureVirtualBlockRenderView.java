@@ -63,12 +63,12 @@ public class StructureVirtualBlockRenderView extends VirtualBlockRenderView
             base = 0;
         }
 
-        if (!this.virtualMode || type != LightType.BLOCK)
+        if (!this.virtualMode || type != LightType.BLOCK || this.emitters.isEmpty())
         {
             return base;
         }
 
-        int max = this.emitters.isEmpty() ? this.virtualAmbient : 0;
+        int max = 0;
 
         for (int i = 0; i < this.emitters.size(); i++)
         {
